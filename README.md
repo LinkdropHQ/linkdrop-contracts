@@ -14,8 +14,8 @@ There are 2 main contracts involved:
 
 Linkdrop Factory contract deploys Linkdrop Campaign Contracts as proxies of Linkdrop Mastercopy for each campaign (based on [Minimal Proxy Contract standard (EIP-1167)](https://eips.ethereum.org/EIPS/eip-1167)).
 
-** User-activated updgradability**
-Factrory owner is able to set and update Linkdrop Mastercopy contracts.
+**User-activated updgradability**  
+Factrory owner can set and update Linkdrop Mastercopy contracts.
 
 Updating Mastercopy will affect new Linkdrop Campaign contract by making them proxies of the new mastercopy.
 Mastercopy update doesn't affect already deployed Linkdrop Campaign contracts by itself. However, campaign creators can destroy their contracts and redeploy the campaign contract.
@@ -23,7 +23,7 @@ New contract will become proxy of the new mastercopy.
 
 ### Linkdrop Campaign Contract
 
-Linkdrop Campaign Contract support claiming of:
+Linkdrop Campaign Contract supports claiming of:
   - ERC20 Tokens: https://github.com/LinkdropHQ/linkdrop-contracts/blob/main/contracts/linkdrop/LinkdropERC20.sol
   - ERC721 Tokens: https://github.com/LinkdropHQ/linkdrop-contracts/blob/main/contracts/linkdrop/LinkdropERC721.sol
   - ERC1155 Tokens: https://github.com/LinkdropHQ/linkdrop-contracts/blob/main/contracts/linkdrop/LinkdropERC1155.sol
@@ -31,8 +31,8 @@ Linkdrop Campaign Contract support claiming of:
 Before claim Linkdrop Campaign Contract verifies that receiver provided valid signatures in accordance with the scheme described at [Technology Overview blog post](https://medium.com/linkdrop-protocol/linkdrop-technical-description-2ec43f718924)  
   
 Linkdrop Campaign Contract supports 2 ways of distributing tokens:
-  - Transfer Pattern: requires pre-minted tokens to the campaign creator wallet. Campaign creator needs to approve the Linkdrop Proxy contract deployed for the campaign. The contract transfers tokens from campaign creator wallet directly to receiver.  
-  - Mint Pattern: requires token contract to support OpenZeppelin [Access Control pattern](https://docs.openzeppelin.com/contracts/4.x/api/access#AccessControl). Campaign creator has to be owner of the token contract and grant minter role (`MINTER_ROLE`) to the Linkdrop proxy contract deployed for the campaign. The contract mints tokens to receiver wallet. 
+  - **Transfer Pattern:** requires pre-minted tokens to the campaign creator wallet. Campaign creator needs to approve the Linkdrop Proxy contract deployed for the campaign. The contract transfers tokens from campaign creator wallet directly to receiver.  
+  - **Mint Pattern:** requires token contract to support OpenZeppelin [Access Control pattern](https://docs.openzeppelin.com/contracts/4.x/api/access#AccessControl). Campaign creator has to be owner of the token contract and grant minter role (`MINTER_ROLE`) to the Linkdrop proxy contract deployed for the campaign. The contract mints tokens to receiver wallet. 
   
   
 ## Installation
