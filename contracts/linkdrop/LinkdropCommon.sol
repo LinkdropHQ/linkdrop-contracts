@@ -59,6 +59,15 @@ contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
         _;
     }
 
+
+    /**
+    * @dev Get linkdrop master for this contract
+    * @return linkdrop master address
+    */
+    function getLinkdropMaster() public override view returns (address) {
+      return linkdropMaster;
+    }
+
     /**
     * @dev Indicates whether a link is claimed or not
     * @param _linkId Address corresponding to link key

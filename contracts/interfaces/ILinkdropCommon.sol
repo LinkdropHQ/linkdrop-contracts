@@ -22,6 +22,7 @@ interface ILinkdropCommon {
     function addSigner(address _linkdropSigner) external payable returns (bool);
     function removeSigner(address _linkdropSigner) external returns (bool);
     function destroy() external;
+    function getLinkdropMaster() external view returns (address);
     function getMasterCopyVersion() external view returns (uint);
     function verifyReceiverSignature( address _linkId,
                                       address _receiver,

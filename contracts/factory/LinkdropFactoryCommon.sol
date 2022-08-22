@@ -124,6 +124,7 @@ contract LinkdropFactoryCommon is LinkdropFactoryStorage {
     {
         require(isDeployed(msg.sender, _campaignId), "LINKDROP_PROXY_CONTRACT_NOT_DEPLOYED");
         address payable proxy = address(uint160(deployed[salt(msg.sender, _campaignId)]));
+        require(msg.sender == ILinkdropCommon(proxy).getLinkdropMaster(), "NOT_AUTHORIZED");
         ILinkdropCommon(proxy).destroy();
         delete deployed[salt(msg.sender, _campaignId)];
         emit Destroyed(msg.sender, proxy);
