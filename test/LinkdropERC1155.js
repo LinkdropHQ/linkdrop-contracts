@@ -115,7 +115,7 @@ describe('ERC1155 linkdrop tests', () => {
     const version = await proxy.version()
     expect(version).to.eq(1)
 
-    const owner = await proxy.owner()
+    const owner = await proxy.factory()
     expect(owner).to.eq(factory.address)
 
     await linkdropMaster.sendTransaction({

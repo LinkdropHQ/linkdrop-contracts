@@ -109,7 +109,7 @@ describe('Campaigns tests', () => {
     let version = await proxy.version()
     expect(version).to.eq(1)
 
-    let owner = await proxy.owner()
+    let owner = await proxy.factory()
     expect(owner).to.eq(factory.address)
 
     let isSigner = await proxy.isLinkdropSigner(linkdropSigner.address)
@@ -211,7 +211,7 @@ describe('Campaigns tests', () => {
     let version = await proxy.version()
     expect(version).to.eq(1)
 
-    let owner = await proxy.owner()
+    let owner = await proxy.factory()
     expect(owner).to.eq(factory.address)
   })
 
@@ -245,7 +245,7 @@ describe('Campaigns tests', () => {
     let version = await proxy.version()
     expect(version).to.eq(1)
 
-    let owner = await proxy.owner()
+    let owner = await proxy.factory()
     expect(owner).to.eq(factory.address)
   })
 })
