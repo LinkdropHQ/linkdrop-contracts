@@ -93,12 +93,12 @@ contract LinkdropFactoryCommon is LinkdropFactoryStorage {
 
         deployed[salt] = proxy;
 
-        // Initialize owner address, linkdrop master address master copy version in proxy contract
+        // Initialize factory address, linkdrop master address master copy version in proxy contract
         require
         (
             ILinkdropCommon(proxy).initialize
             (
-                address(this), // Owner address
+                address(this), // factory address
                 _linkdropMaster, // Linkdrop master address
                 masterCopyVersion,
                 chainId,

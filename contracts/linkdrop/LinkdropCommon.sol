@@ -9,8 +9,8 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
 
     /**
-    * @dev Function called only once to set owner, linkdrop master, contract version and chain id
-    * @param _owner Owner address
+    * @dev Function called only once to set factory, linkdrop master, contract version and chain id
+    * @param _factory Factory address
     * @param _linkdropMaster Address corresponding to master key
     * @param _version Contract version
     * @param _chainId Network id
@@ -18,7 +18,7 @@ contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
     */
     function initialize
     (
-        address _owner,
+        address _factory,
         address payable _linkdropMaster,
         uint _version,
         uint _chainId,
@@ -30,7 +30,7 @@ contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
     {
         require(!initialized, "LINKDROP_PROXY_CONTRACT_ALREADY_INITIALIZED");
         require(_claimPattern == 0 || _claimPattern == 1, "UNKNOWN_TRANSFER_PATTERN");        
-        owner = _owner;
+        factory = _factory;
         linkdropMaster = _linkdropMaster;
         isLinkdropSigner[linkdropMaster] = true;
         version = _version;
@@ -46,12 +46,12 @@ contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
     }
 
     modifier onlyLinkdropMasterOrFactory() {
-        require (msg.sender == linkdropMaster || msg.sender == owner, "ONLY_LINKDROP_MASTER_OR_FACTORY");
+        require (msg.sender == linkdropMaster || msg.sender == factory, "ONLY_LINKDROP_MASTER_OR_FACTORY");
         _;
     }
 
     modifier onlyFactory() {
-        require(msg.sender == owner, "ONLY_FACTORY");
+        require(msg.sender == factory, "ONLY_FACTORY");
         _;
     }
 
@@ -138,7 +138,7 @@ contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
     }
 
     /**
-    * @dev Function to add new signing key, can only be called by linkdrop master or owner (factory contract)
+    * @dev Function to add new signing key, can only be called by linkdrop master or factory
     * @param _linkdropSigner Address corresponding to signing key
     * @return True if success
     */
@@ -160,7 +160,7 @@ contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
     }
 
     /**
-    * @dev Function to destroy this contract, can only be called by owner (factory) or linkdrop master
+    * @dev Function to destroy this contract, can only be called by factory or linkdrop master
     * Withdraws all the remaining ETH to linkdrop master
     */
     function destroy() external override onlyLinkdropMasterOrFactory {
