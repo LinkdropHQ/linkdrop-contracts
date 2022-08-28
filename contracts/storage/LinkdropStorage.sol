@@ -3,8 +3,8 @@ pragma solidity >=0.6.0 <0.8.0;
 
 contract LinkdropStorage {
 
-    // Address of owner deploying this contract (usually factory)
-    address public owner;
+    // Address of contract deploying proxies
+    address public factory;
 
     // Address corresponding to linkdrop master key
     address payable public linkdropMaster;
