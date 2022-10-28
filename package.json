@@ -22,7 +22,7 @@
     "@babel/register": "^7.4.0",
     "chai": "^4.3.6",
     "dotenv": "^16.0.1",
-    "mocha": "3.5.3"
+    "mocha": "10.1.0"
   },
   "standard": {
     "parser": "babel-eslint"
