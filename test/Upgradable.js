@@ -3,7 +3,7 @@
 import chai from 'chai'
 
 import {
-  createMockProvider,
+  MockProvider,
   deployContract,
   getWallets,
   solidity
@@ -15,15 +15,13 @@ import LinkdropMastercopy from '../build/LinkdropMastercopy'
 import { computeBytecode, computeProxyAddress } from '../scripts/utils'
 
 const ethers = require('ethers')
-// Turn off annoying warnings
-ethers.errors.setLogLevel('error')
 
 chai.use(solidity)
 const { expect } = chai
 
-let provider = createMockProvider()
+let provider = new MockProvider()
 
-let [linkdropMaster, deployer, relayer] = getWallets(provider)
+let [linkdropMaster, deployer, relayer] = provider.getWallets()
 
 let masterCopy
 let factory
@@ -176,12 +174,12 @@ describe('Proxy upgradability tests', () => {
     isDeployed = await factory.isDeployed(linkdropMaster.address, campaignId)
     expect(isDeployed).to.eq(false)
 
-    deployedAddress = await factory.functions.deployed(
+    deployedAddress = (await factory.functions.deployed(
       ethers.utils.solidityKeccak256(
         ['address', 'uint256'],
         [linkdropMaster.address, campaignId]
       )
-    )
+    ))[0]
     expect(deployedAddress).to.eq(ethers.constants.AddressZero)
   })
 

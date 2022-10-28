@@ -3,9 +3,8 @@
 import chai from 'chai'
 
 import {
-  createMockProvider,
+  MockProvider,
   deployContract,
-  getWallets,
   solidity
 } from 'ethereum-waffle'
 
@@ -17,15 +16,12 @@ import { computeProxyAddress, computeBytecode } from '../scripts/utils'
 
 const ethers = require('ethers')
 
-// Turn off annoying warnings
-ethers.errors.setLogLevel('error')
-
 chai.use(solidity)
 const { expect } = chai
 
-let provider = createMockProvider()
+let provider = new MockProvider();
 
-let [deployer, linkdropMaster, linkdropSigner, relayer] = getWallets(provider)
+let [deployer, linkdropMaster, linkdropSigner, relayer] = provider.getWallets()
 
 let masterCopy
 let factory
@@ -103,6 +99,7 @@ describe('Campaigns tests', () => {
       linkdropMaster
     )
 
+    console.log("here 4 ")    
     let linkdropMasterAddress = await proxy.linkdropMaster()
     expect(linkdropMasterAddress).to.eq(linkdropMaster.address)
 
