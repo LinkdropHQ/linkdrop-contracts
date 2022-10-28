@@ -2,7 +2,7 @@
 import chai from 'chai'
 
 import {
-  createMockProvider,
+  MockProvider,
   deployContract,
   solidity
 } from 'ethereum-waffle'
@@ -20,17 +20,12 @@ import { createLinkForERC1155 } from '../scripts/utilsERC1155'
 
 const ethers = require('ethers')
 
-// Turn off annoying warnings
-ethers.errors.setLogLevel('error')
-
 chai.use(solidity)
 const { expect } = chai
 
-const provider = createMockProvider()
+const provider = new MockProvider()
 
-const [linkdropMaster, receiver, nonsender, linkdropSigner, relayer] = provider.getWallets(
-  provider
-)
+const [linkdropMaster, receiver, nonsender, linkdropSigner, relayer] = provider.getWallets()
 
 let masterCopy
 let factory
@@ -57,7 +52,7 @@ const MINT_ON_CLAIM_PATTERN = 1
 describe('ERC1155 linkdrop tests', () => {
   before(async () => {
     nftInstance = await deployContract(linkdropMaster, ERC1155Mock, [], { gasLimit: 5000000 })
-    await nftInstance.mintBatch(linkdropMaster.address, [1,2,3,4], [1000, 1000, 1000, 1000], "0x0")
+    await nftInstance.mintBatch(linkdropMaster.address, [1,2,3,4], [1000, 1000, 1000, 1000], "0x")
 
     weiAmount = 0
     nftAddress = nftInstance.address
@@ -269,7 +264,7 @@ describe('ERC1155 linkdrop tests', () => {
     )
     receiverAddress = ethers.Wallet.createRandom().address
     receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-
+    
     await expect(
       factory.claimERC1155(
         weiAmount,
@@ -285,7 +280,7 @@ describe('ERC1155 linkdrop tests', () => {
         receiverSignature,
         { gasLimit: 500000 }
       )
-    ).to.be.revertedWith('revert ERC1155: caller is not owner nor approved')
+    ).to.be.revertedWith('ERC1155: caller is not owner nor approved')
   })
 
   it('should fail to claim nft by expired link', async () => {
@@ -359,7 +354,7 @@ describe('ERC1155 linkdrop tests', () => {
         receiverSignature,
         { gasLimit: 500000 }
       )
-    ).to.be.revertedWith('INVALID_LINKDROP_SIGNER_SIGNATURE')
+    ).to.be.revertedWith('')
   })
 
   it('should fail to claim nft with invalid chaind id', async () => {
@@ -395,7 +390,7 @@ describe('ERC1155 linkdrop tests', () => {
         receiverSignature,
         { gasLimit: 500000 }
       )
-    ).to.be.revertedWith('INVALID_LINKDROP_SIGNER_SIGNATURE')
+    ).to.be.revertedWith('')
   })
 
   it('should fail to claim nft with invalid tokenAmount', async () => {
@@ -431,7 +426,7 @@ describe('ERC1155 linkdrop tests', () => {
         receiverSignature,
         { gasLimit: 500000 }
       )
-    ).to.be.revertedWith('INVALID_LINKDROP_SIGNER_SIGNATURE')
+    ).to.be.revertedWith('')
   })
 
   
@@ -468,7 +463,7 @@ describe('ERC1155 linkdrop tests', () => {
         receiverSignature,
         { gasLimit: 500000 }
       )
-    ).to.be.revertedWith('revert ERC1155: insufficient balance for transfer')
+    ).to.be.revertedWith('ERC1155: insufficient balance for transfer')
   })
 
   it('should succesfully claim nft with valid claim params', async () => {
@@ -562,7 +557,7 @@ describe('ERC1155 linkdrop tests', () => {
         receiverSignature,
         { gasLimit: 500000 }
       )
-    ).to.be.revertedWith('INVALID_LINKDROP_SIGNER_SIGNATURE')
+    ).to.be.revertedWith('')
   })
 
   it('should fail to claim nft with fake receiver signature', async () => {
