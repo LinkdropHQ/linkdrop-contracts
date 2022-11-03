@@ -7,6 +7,7 @@ import "../interfaces/IERC721Mintable.sol";
 
 contract ERC721Mock is ERC721, AccessControl, IERC721Mintable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    uint256 public tokenCount = 0;
 
     constructor() public ERC721("LinkdropMockERC721", "LMT") {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -14,9 +15,16 @@ contract ERC721Mock is ERC721, AccessControl, IERC721Mintable {
         _setBaseURI("https://gateway.pinata.cloud/ipfs/QmUbZMCzsDsQQFims83EAaS2PKD1BBDVxWizQmMUkWS3kV/");
     }
 
-   function safeMint(address to, uint256 tokenId)  public override {
+    /* function safeMint(address to, uint256 tokenId)  public override { */
+    /*  require(hasRole(MINTER_ROLE, msg.sender), "Not authorized"); */
+    /*  _safeMint(to, tokenId);  */
+    /* } */
+
+    
+    function safeMint(address to)  public override {
      require(hasRole(MINTER_ROLE, msg.sender), "Not authorized");
-     _safeMint(to, tokenId);
+     ++tokenCount;     
+     _safeMint(to, tokenCount); 
     }
 
     function tokenURI(uint256 tokenId)

@@ -54,7 +54,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
   
   before(async () => {    
     nftInstance = await deployContract(linkdropMaster, ERC721Mock, [], { gasLimit: 5000000 })
-    await nftInstance.safeMint(linkdropMaster.address, 1);
+    await nftInstance.safeMint(linkdropMaster.address);
 
     
     weiAmount = 0
@@ -316,8 +316,8 @@ describe('ETH/ERC721 linkdrop tests', () => {
   })
 
   it('should fail to claim nft which does not belong to linkdrop master', async () => {
-    const unavailableTokenId = 13
-    await nftInstance.safeMint(nonsender.address, unavailableTokenId);
+    const unavailableTokenId = 2
+    await nftInstance.safeMint(nonsender.address);
     
     link = await createLink(
       linkdropSigner,
@@ -410,8 +410,8 @@ describe('ETH/ERC721 linkdrop tests', () => {
   })
 
   it('should fail to claim nft with fake linkdropMaster signature', async () => {
-    await nftInstance.safeMint(linkdropMaster.address, 4);
-    tokenId = 4
+    await nftInstance.safeMint(linkdropMaster.address);
+    tokenId = 3
 
     let wallet = ethers.Wallet.createRandom()
     let linkId = wallet.address
@@ -516,7 +516,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
 
 
   it('should succesfully claim eth and nft simulteneously', async () => {
-    tokenId = 4
+    tokenId = 3
 
     weiAmount = 15 // wei
 

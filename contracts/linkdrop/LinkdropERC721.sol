@@ -217,7 +217,7 @@ contract LinkdropERC721 is ILinkdropERC721, LinkdropCommon {
         IERC721(_nftAddress).transferFrom(linkdropMaster, _receiver, _tokenId);
         return;
       } else if (claimPattern == 1) {
-        IERC721Mintable(_nftAddress).safeMint(_receiver, _tokenId);
+        IERC721Mintable(_nftAddress).safeMint(_receiver);
         return;
       }
       revert("UNKNOWN_TRANSFER_PATTERN");
