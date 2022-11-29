@@ -376,7 +376,7 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
   })
 
   it('should fail to claim nft with fake linkdropMaster signature', async () => {
-    await nftInstance.safeMint(linkdropMaster.address, 4);
+    //await nftInstance.safeMint(linkdropMaster.address, 4);
     tokenId = 4
 
     let wallet = ethers.Wallet.createRandom()
@@ -521,7 +521,8 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
       { gasLimit: 800000 }
     )
 
-    let owner = await nftInstance.ownerOf(tokenId)
+    const lastTokenId = await nftInstance.tokenCount()
+    let owner = await nftInstance.ownerOf(lastTokenId)
     expect(owner).to.eq(receiverAddress)
 
     let receiverEthBalance = await provider.getBalance(receiverAddress)
