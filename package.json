@@ -1,11 +1,12 @@
 {
-  "name": "linkdrop-contracts",
+  "name": "linkdrop-contracts",  
   "version": "1.2.0",
   "license": "GPL-3.0",
   "scripts": {
     "test": "mocha --require @babel/polyfill --require @babel/register",
     "compile": "npx waffle .waffle",
-    "deploy": "node scripts/deploy.js --require @babel/polyfill --require @babel/register"
+    "deploy": "node scripts/deploy.js --require @babel/polyfill --require @babel/register",
+    "deploy-erc721": "node scripts/deploy-erc721.js --require @babel/polyfill --require @babel/register"                
   },
   "dependencies": {
     "ethereum-waffle": "4.0.7",
