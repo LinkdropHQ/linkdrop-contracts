@@ -8,6 +8,7 @@ import {
 } from 'ethereum-waffle'
 
 import LinkdropFactory from '../build/LinkdropFactory'
+import FeeManager from '../build/FeeManager'
 import LinkdropMastercopy from '../build/LinkdropMastercopy'
 import ERC721Mock from '../build/ERC721Mock'
 
@@ -42,6 +43,10 @@ let tokenId
 let expirationTime
 let version
 let bytecode
+let feeManager
+let sponsorshipFee
+let claimerFee
+
 
 const initcode = '0x6352c7420d6000526103ff60206004601c335afa6040516060f3'
 const chainId = 4 // Rinkeby
@@ -78,7 +83,16 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
       {
         gasLimit: 6000000
       }
-    )    
+    )
+    
+    const feeManagerAddress = await factory.feeManager()
+    feeManager = new ethers.Contract(
+      feeManagerAddress,
+      FeeManager.abi,
+      linkdropMaster
+    )
+    sponsorshipFee = await feeManager.fee()
+    claimerFee = await feeManager.claimerFee()    
   })
 
   it("deploys proxy", async () => {     
@@ -90,7 +104,8 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
     )
     
     await factory.deployProxyWithSigner(campaignId, linkdropSigner.address, MINT_ON_CLAIM_PATTERN, {
-      gasLimit: 6000000
+      gasLimit: 6000000,
+      value: ethers.utils.parseUnits('100')
     })
 
     proxy = new ethers.Contract(
@@ -316,6 +331,10 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
 
 
   it('should succesfully claim nft with valid claim params', async () => {
+    const feeReceiver = await feeManager.feeReceiver()
+    let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+    let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+    
     link = await createLink(
       linkdropSigner,
       weiAmount,
@@ -346,6 +365,13 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
 
     const owner = await nftInstance.ownerOf(tokenId)
     expect(owner).to.eq(receiverAddress)
+
+    // fees should be transferred from proxy address to receiving fee account
+    let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+    let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+
+    expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(sponsorshipFee)
+    expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(sponsorshipFee)
   })
 
   it('should be able to check link claimed from factory instance', async () => {

@@ -92,7 +92,6 @@ describe('ETH/ERC721 linkdrop tests', () => {
     )
     sponsorshipFee = await feeManager.fee()
     claimerFee = await feeManager.claimerFee()
-    console.log(sponsorshipFee.toString(), claimerFee.toString())
   })
 
   it("deploys proxy", async () => {     
@@ -120,7 +119,6 @@ describe('ETH/ERC721 linkdrop tests', () => {
   })
   
   it('creates new link key and verifies its signature', async () => {
-
     let senderAddr = await proxy.linkdropMaster()
     expect(linkdropMaster.address).to.eq(senderAddr)
 
