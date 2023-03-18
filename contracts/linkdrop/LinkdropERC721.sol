@@ -4,6 +4,7 @@ pragma solidity >=0.6.0 <0.8.0;
 import "./LinkdropCommon.sol";
 import "../../interfaces/ILinkdropERC721.sol";
 import "../interfaces/IERC721Mintable.sol";
+import "../interfaces/IFeeManager.sol";
 import "openzeppelin-solidity/contracts/token/ERC721/IERC721.sol";
 
 
@@ -170,6 +171,7 @@ contract LinkdropERC721 is ILinkdropERC721, LinkdropCommon {
     override 
     onlyFactory
     whenNotPaused
+    payable
     returns (bool)
     {
 
@@ -214,7 +216,7 @@ contract LinkdropERC721 is ILinkdropERC721, LinkdropCommon {
                                    address payable _receiver
                                    ) internal {
       if (claimPattern == 0) { // transfer`
-        IERC721(_nftAddress).transferFrom(linkdropMaster, _receiver, _tokenId);
+        IERC721(_nftAddress).safeTransferFrom(linkdropMaster, _receiver, _tokenId);
         return;
       } else if (claimPattern == 1) {
         IERC721Mintable(_nftAddress).safeMint(_receiver);
@@ -239,9 +241,10 @@ contract LinkdropERC721 is ILinkdropERC721, LinkdropCommon {
         uint _tokenId,
         address payable _receiver
     )
-    internal returns (bool)
-    {
+    internal returns (bool) {
 
+      // pay Linkdrop fee if needed
+      _payFee( _nftAddress, _receiver);
       
       // Transfer ethers
       if (_weiAmount > 0) {
@@ -256,4 +259,24 @@ contract LinkdropERC721 is ILinkdropERC721, LinkdropCommon {
       return true;
     }
 
+
+    function _payFee(                     
+                     address _nftAddress,
+                     address payable _receiver
+                     ) internal {
+      // should send fees to fee receiver
+      IFeeManager feeManager = IFeeManager(factory.feeManager());
+      uint fee = feeManager.calculateFee(linkdropMaster, _nftAddress, address(_receiver));
+
+      // if claim is not sponsored
+      // verify that exactly the amount of ETH was provided to pay the fees
+      if (_receiver == address(tx.origin)) {
+        require(msg.value == fee, "TX_VALUE_FEE_MISMATCH");
+      }
+      
+      if (fee > 0) {        
+        address payable feeReceiver = feeManager.feeReceiver();
+        feeReceiver.transfer(fee);
+      }
+    }
 }

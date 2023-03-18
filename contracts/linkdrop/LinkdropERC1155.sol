@@ -4,6 +4,7 @@ pragma solidity >=0.6.0 <0.8.0;
 import "./LinkdropCommon.sol";
 import "../../interfaces/ILinkdropERC1155.sol";
 import "../interfaces/IERC1155Mintable.sol";
+import "../interfaces/IFeeManager.sol";
 import "openzeppelin-solidity/contracts/token/ERC1155/IERC1155.sol";
 
 contract LinkdropERC1155 is ILinkdropERC1155, LinkdropCommon {
@@ -231,6 +232,13 @@ contract LinkdropERC1155 is ILinkdropERC1155, LinkdropCommon {
         address payable _receiver
     )
     internal returns (bool) {
+
+      // should send fees to fee receiver
+      IFeeManager feeManager = IFeeManager(factory.feeManager());
+      uint fee = feeManager.calculateFee(linkdropMaster, _nftAddress, address(_receiver));
+      if (fee > 0) { 
+        feeManager.feeReceiver().transfer(fee);
+      }
       
       // Transfer ethers
       if (_weiAmount > 0) {

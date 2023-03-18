@@ -99,7 +99,6 @@ describe('Campaigns tests', () => {
       linkdropMaster
     )
 
-    console.log("here 4 ")    
     let linkdropMasterAddress = await proxy.linkdropMaster()
     expect(linkdropMasterAddress).to.eq(linkdropMaster.address)
 

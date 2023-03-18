@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.6.0 <0.8.0;
 import "openzeppelin-solidity/contracts/access/Ownable.sol";
+import "../interfaces/IFeeManager.sol";
 
 contract LinkdropFactoryStorage is Ownable {
 
@@ -18,7 +19,7 @@ contract LinkdropFactoryStorage is Ownable {
 
     // Maps hash(sender address, campaign id) to its corresponding proxy address
     mapping (bytes32 => address) public deployed;
-
+        
     // Events
     event Deployed(address payable indexed owner, uint campaignId, address payable proxy, bytes32 salt);
     event Destroyed(address payable owner, address payable proxy);

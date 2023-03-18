@@ -84,15 +84,16 @@ contract LinkdropFactoryERC721 is ILinkdropFactoryERC721, LinkdropFactoryCommon 
         bytes calldata _receiverSignature
     )
     external
-    override      
+    override
+    payable
     returns (bool)
     {
         // Make sure proxy contract is deployed
         require(isDeployed(_linkdropMaster, _campaignId), "LINKDROP_PROXY_CONTRACT_NOT_DEPLOYED");
-
         // Call claim function in the context of proxy contract
         ILinkdropERC721(deployed[salt(_linkdropMaster, _campaignId)]).claimERC721
-        (
+          { value: msg.value }
+          (
             _weiAmount,
             _nftAddress,
             _tokenId,
@@ -105,5 +106,4 @@ contract LinkdropFactoryERC721 is ILinkdropFactoryERC721, LinkdropFactoryCommon 
 
         return true;
     }
-
 }

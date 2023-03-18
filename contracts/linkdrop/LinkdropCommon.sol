@@ -5,6 +5,7 @@ import "../interfaces/ILinkdropCommon.sol";
 import "../storage/LinkdropStorage.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "../interfaces/ILinkdropFactory.sol";
 
 contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
 
@@ -30,7 +31,7 @@ contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
     {
         require(!initialized, "LINKDROP_PROXY_CONTRACT_ALREADY_INITIALIZED");
         require(_claimPattern == 0 || _claimPattern == 1, "UNKNOWN_TRANSFER_PATTERN");        
-        factory = _factory;
+        factory = ILinkdropFactory(_factory);
         linkdropMaster = _linkdropMaster;
         isLinkdropSigner[linkdropMaster] = true;
         version = _version;
@@ -46,12 +47,12 @@ contract LinkdropCommon is ILinkdropCommon, LinkdropStorage {
     }
 
     modifier onlyLinkdropMasterOrFactory() {
-        require (msg.sender == linkdropMaster || msg.sender == factory, "ONLY_LINKDROP_MASTER_OR_FACTORY");
+      require (msg.sender == linkdropMaster || msg.sender == address(factory), "ONLY_LINKDROP_MASTER_OR_FACTORY");
         _;
     }
 
     modifier onlyFactory() {
-        require(msg.sender == factory, "ONLY_FACTORY");
+      require(msg.sender == address(factory), "ONLY_FACTORY");
         _;
     }
 

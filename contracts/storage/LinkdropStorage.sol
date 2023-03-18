@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.6.0 <0.8.0;
+import "../interfaces/ILinkdropFactory.sol";
 
 contract LinkdropStorage {
 
     // Address of contract deploying proxies
-    address public factory;
+    ILinkdropFactory public factory;
 
     // Address corresponding to linkdrop master key
     address payable public linkdropMaster;

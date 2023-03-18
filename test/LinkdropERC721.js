@@ -8,6 +8,7 @@ import {
 } from 'ethereum-waffle'
 
 import LinkdropFactory from '../build/LinkdropFactory'
+import FeeManager from '../build/FeeManager'
 import LinkdropMastercopy from '../build/LinkdropMastercopy'
 import ERC721Mock from '../build/ERC721Mock'
 
@@ -42,6 +43,9 @@ let tokenId
 let expirationTime
 let version
 let bytecode
+let feeManager
+let sponsorshipFee
+let claimerFee
 
 const initcode = '0x6352c7420d6000526103ff60206004601c335afa6040516060f3'
 const chainId = 4 // Rinkeby
@@ -54,9 +58,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
   
   before(async () => {    
     nftInstance = await deployContract(linkdropMaster, ERC721Mock, [], { gasLimit: 5000000 })
-    await nftInstance.safeMint(linkdropMaster.address);
-
-    
+    await nftInstance.safeMint(linkdropMaster.address); 
     weiAmount = 0
     nftAddress = nftInstance.address
     tokenId = 1
@@ -80,7 +82,17 @@ describe('ETH/ERC721 linkdrop tests', () => {
       {
         gasLimit: 6000000
       }
-    )    
+    )
+
+    const feeManagerAddress = await factory.feeManager()
+    feeManager = new ethers.Contract(
+      feeManagerAddress,
+      FeeManager.abi,
+      linkdropMaster
+    )
+    sponsorshipFee = await feeManager.fee()
+    claimerFee = await feeManager.claimerFee()
+    console.log(sponsorshipFee.toString(), claimerFee.toString())
   })
 
   it("deploys proxy", async () => {     
@@ -92,7 +104,8 @@ describe('ETH/ERC721 linkdrop tests', () => {
     )
     
     await factory.deployProxyWithSigner(campaignId, linkdropSigner.address, DEFAULT_TRANSFER_PATTERN, {
-      gasLimit: 6000000
+      gasLimit: 6000000,
+      value: ethers.utils.parseUnits('100')
     })
 
     proxy = new ethers.Contract(
@@ -100,12 +113,11 @@ describe('ETH/ERC721 linkdrop tests', () => {
       LinkdropMastercopy.abi,
       linkdropMaster
     )
-  })
-
+  }) 
+  
   it("gives permission to the proxy contract", async () => {
     await nftInstance.setApprovalForAll(proxy.address, true)     
   })
-  
   
   it('creates new link key and verifies its signature', async () => {
 
@@ -331,7 +343,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
     )
     receiverAddress = ethers.Wallet.createRandom().address
     receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-
+    
     await expect(
       factory.claimERC721(
         weiAmount,
@@ -350,6 +362,10 @@ describe('ETH/ERC721 linkdrop tests', () => {
   })
 
   it('should succesfully claim nft with valid claim params', async () => {
+    const feeReceiver = await feeManager.feeReceiver()
+    let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+    let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+    
     link = await createLink(
       linkdropSigner,
       weiAmount,
@@ -380,6 +396,13 @@ describe('ETH/ERC721 linkdrop tests', () => {
 
     const owner = await nftInstance.ownerOf(tokenId)
     expect(owner).to.eq(receiverAddress)
+
+    // fees should be transferred from proxy address to receiving fee account
+    let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+    let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+
+    expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(sponsorshipFee)
+    expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(sponsorshipFee)
   })
 
   it('should be able to check link claimed from factory instance', async () => {
@@ -517,9 +540,6 @@ describe('ETH/ERC721 linkdrop tests', () => {
 
   it('should succesfully claim eth and nft simulteneously', async () => {
     tokenId = 3
-
-    weiAmount = 15 // wei
-
     // Send ethers to Linkdrop contract
     let tx = {
       to: proxy.address,
@@ -529,7 +549,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
 
     link = await createLink(
       linkdropSigner,
-      weiAmount,
+      15, // weiAmount
       nftAddress,
       tokenId,
       expirationTime,
@@ -542,7 +562,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
     receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
 
     await factory.claimERC721(
-      weiAmount,
+      15, // weiAmount
       nftAddress,
       tokenId,
       expirationTime,
@@ -559,6 +579,217 @@ describe('ETH/ERC721 linkdrop tests', () => {
     expect(owner).to.eq(receiverAddress)
 
     let receiverEthBalance = await provider.getBalance(receiverAddress)
-    expect(receiverEthBalance).to.eq(weiAmount)
+    expect(receiverEthBalance).to.eq(15)
+  })
+
+
+  it('should succesfully claim nft with valid claim params without sponsorship', async () => {    
+    await nftInstance.safeMint(linkdropMaster.address);    
+    tokenId = 4
+    const feeReceiver = await feeManager.feeReceiver()
+    let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+    let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+    let receiverBalanceBefore = await provider.getBalance(receiver.address)    
+    
+    link = await createLink(
+      linkdropSigner,
+      weiAmount,
+      nftAddress,
+      tokenId,
+      expirationTime,
+      version,
+      chainId,
+      proxyAddress
+    )
+    
+    receiverAddress = receiver.address
+    receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+    factory = factory.connect(receiver)
+    
+    await factory.claimERC721(
+      weiAmount,
+      nftAddress,
+      tokenId,
+      expirationTime,
+      link.linkId,
+      linkdropMaster.address,
+      campaignId,
+      link.linkdropSignerSignature,
+      receiverAddress,
+      receiverSignature,
+      {
+        gasLimit: 800000,
+        from: receiver.address,
+        value: claimerFee
+      }
+    )
+
+    const owner = await nftInstance.ownerOf(tokenId)
+    expect(owner).to.eq(receiverAddress)
+
+    // fees should be transferred from proxy address to receiving fee account
+    let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+    let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+    let receiverBalanceAfter = await provider.getBalance(receiver.address)    
+    
+    expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+    expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(claimerFee)
+    expect(receiverBalanceBefore.sub(receiverBalanceAfter)).to.be.gt(claimerFee)
+  })
+
+  describe("whitelisted", () => {
+    before(async () => {
+      await feeManager.whitelist(linkdropMaster.address)
+    })
+
+    it('should succesfully claim with sponsorship', async () => {    
+      await nftInstance.safeMint(linkdropMaster.address);    
+      tokenId = 5
+      
+      const feeReceiver = await feeManager.feeReceiver()
+      let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+      let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+      let receiverBalanceBefore = await provider.getBalance(receiver.address)    
+      
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        nftAddress,
+        tokenId,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+      
+      receiverAddress = receiver.address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+      factory = factory.connect(linkdropMaster)
+      
+      await factory.claimERC721(
+        weiAmount,
+        nftAddress,
+        tokenId,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        {
+          gasLimit: 800000
+        }
+      )
+
+      const owner = await nftInstance.ownerOf(tokenId)
+      expect(owner).to.eq(receiverAddress)
+
+      // fees should not be transferred 
+      let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+      let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+      let receiverBalanceAfter = await provider.getBalance(receiver.address)    
+      
+      expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+      expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(0)
+      expect(receiverBalanceBefore.sub(receiverBalanceAfter)).to.eq(0)
+    }) 
+    
+    it('should not allow to claim without sponsorship if tx value is not matched with fee', async () => {    
+      await nftInstance.safeMint(linkdropMaster.address);    
+      tokenId = 6
+      
+      const feeReceiver = await feeManager.feeReceiver()
+      let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+      let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+      let receiverBalanceBefore = await provider.getBalance(receiver.address)    
+      
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        nftAddress,
+        tokenId,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+      
+      receiverAddress = receiver.address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+      factory = factory.connect(receiver)
+      
+      await expect(factory.claimERC721(
+        weiAmount,
+        nftAddress,
+        tokenId,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        {
+          gasLimit: 800000,
+          from: receiver.address,
+          value: claimerFee
+        }
+      )).to.be.revertedWith("TX_VALUE_FEE_MISMATCH")
+    })
+
+    
+    it('should succesfully claim without sponsorship', async () => {    
+      tokenId = 6
+      
+      const feeReceiver = await feeManager.feeReceiver()
+      let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+      let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+      let receiverBalanceBefore = await provider.getBalance(receiver.address)    
+      
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        nftAddress,
+        tokenId,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+      
+      receiverAddress = receiver.address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+      factory = factory.connect(receiver)
+      
+      await factory.claimERC721(
+        weiAmount,
+        nftAddress,
+        tokenId,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        {
+          gasLimit: 800000,
+          from: receiver.address
+        }
+      )
+
+      const owner = await nftInstance.ownerOf(tokenId)
+      expect(owner).to.eq(receiverAddress)
+
+      // fees should be transferred from proxy address to receiving fee account
+      let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+      let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+      let receiverBalanceAfter = await provider.getBalance(receiver.address)    
+      
+      expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+      expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(0)
+      expect(receiverBalanceBefore.sub(receiverBalanceAfter)).to.be.gt(0)
+    }) 
   })
 })

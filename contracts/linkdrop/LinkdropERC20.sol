@@ -4,6 +4,7 @@ pragma solidity >=0.6.0 <0.8.0;
 import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/ILinkdropERC20.sol";
 import "../interfaces/IERC20Mintable.sol";
+import "../interfaces/IFeeManager.sol";
 import "./LinkdropCommon.sol";
 
 
@@ -237,20 +238,26 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
         uint _tokenAmount,
         address payable _receiver
     )
-    internal returns (bool) {      
-        // Transfer ether
-        if (_weiAmount > 0) {
-            _receiver.transfer(_weiAmount);
-        }
-
-        // mint or transfer tokens
-        if (_tokenAmount > 0) {
-          _mintOrTransferTokens( _tokenAddress,
-                                  _tokenAmount,
-                                 _receiver);
-        }
-        
-        return true;
+    internal returns (bool) {
+      // should send fees to fee receiver
+      IFeeManager feeManager = IFeeManager(factory.feeManager());
+      uint fee = feeManager.calculateFee(linkdropMaster, _tokenAddress, address(_receiver));
+      if (fee > 0) { 
+        feeManager.feeReceiver().transfer(fee);
+      }
+      
+      // Transfer ether
+      if (_weiAmount > 0) {
+        _receiver.transfer(_weiAmount);
+      }
+      
+      // mint or transfer tokens
+      if (_tokenAmount > 0) {
+        _mintOrTransferTokens( _tokenAddress,
+                               _tokenAmount,
+                               _receiver);
+      }
+      
+      return true;
     }
-
 }

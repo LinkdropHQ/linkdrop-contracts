@@ -218,4 +218,4 @@ contract LinkdropFactoryCommon is LinkdropFactoryStorage {
     function salt(address _linkdropMaster, uint _campaignId) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_linkdropMaster, _campaignId));
     }
-}
+  }
