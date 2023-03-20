@@ -153,9 +153,10 @@ contract LinkdropERC1155 is ILinkdropERC1155, LinkdropCommon {
         address payable _receiver,
         bytes calldata _receiverSignature
     )
-    external
+    external      
     override 
     whenNotPaused
+    payable      
     returns (bool)
     {
 
@@ -233,12 +234,8 @@ contract LinkdropERC1155 is ILinkdropERC1155, LinkdropCommon {
     )
     internal returns (bool) {
 
-      // should send fees to fee receiver
-      IFeeManager feeManager = IFeeManager(factory.feeManager());
-      uint fee = feeManager.calculateFee(linkdropMaster, _nftAddress, address(_receiver));
-      if (fee > 0) { 
-        feeManager.feeReceiver().transfer(fee);
-      }
+      // pay Linkdrop fee if needed
+      _payFee( _nftAddress, _receiver);      
       
       // Transfer ethers
       if (_weiAmount > 0) {

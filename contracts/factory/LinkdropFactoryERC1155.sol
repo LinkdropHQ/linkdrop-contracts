@@ -89,7 +89,8 @@ contract LinkdropFactoryERC1155 is ILinkdropFactoryERC1155, LinkdropFactoryCommo
         bytes calldata _receiverSignature
     )
     external
-    override      
+    override
+    payable
     returns (bool)
     {
       // Make sure proxy contract is deployed
