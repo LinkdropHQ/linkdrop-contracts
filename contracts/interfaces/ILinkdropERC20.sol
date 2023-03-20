@@ -38,6 +38,5 @@ interface ILinkdropERC20 {
         address payable _receiver,
         bytes calldata _receiverSignature
     )
-    external returns (bool);
-
+      external payable returns (bool);
 }

@@ -258,25 +258,4 @@ contract LinkdropERC721 is ILinkdropERC721, LinkdropCommon {
       
       return true;
     }
-
-
-    function _payFee(                     
-                     address _nftAddress,
-                     address payable _receiver
-                     ) internal {
-      // should send fees to fee receiver
-      IFeeManager feeManager = IFeeManager(factory.feeManager());
-      uint fee = feeManager.calculateFee(linkdropMaster, _nftAddress, address(_receiver));
-
-      // if claim is not sponsored
-      // verify that exactly the amount of ETH was provided to pay the fees
-      if (_receiver == address(tx.origin)) {
-        require(msg.value == fee, "TX_VALUE_FEE_MISMATCH");
-      }
-      
-      if (fee > 0) {        
-        address payable feeReceiver = feeManager.feeReceiver();
-        feeReceiver.transfer(fee);
-      }
-    }
 }

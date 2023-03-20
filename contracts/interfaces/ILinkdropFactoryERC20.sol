@@ -33,6 +33,6 @@ interface ILinkdropFactoryERC20 {
         bytes calldata _receiverSignature
     )
     external
+    payable
     returns (bool);
-
 }
