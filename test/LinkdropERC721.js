@@ -581,7 +581,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
   })
 
 
-  it('should succesfully claim nft with valid claim params without sponsorship', async () => {    
+  it('should succesfully claim nft when not sponsored', async () => {    
     await nftInstance.safeMint(linkdropMaster.address);    
     tokenId = 4
     const feeReceiver = await feeManager.feeReceiver()

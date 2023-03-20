@@ -413,7 +413,7 @@ describe('ETH/ERC20 linkdrop tests', () => {
     ).to.be.revertedWith('')
   })
 
-  it('should succesfully claim tokens with valid claim params', async () => {    
+  it('should successfully claim tokens with valid claim params', async () => {    
     // Approving tokens from linkdropMaster to Linkdrop Contract
     await tokenInstance.approve(proxy.address, tokenAmount)
 
@@ -737,5 +737,70 @@ describe('ETH/ERC20 linkdrop tests', () => {
 
     let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
     expect(receiverTokenBalance).to.eq(tokenAmount)
+
+    weiAmount = 0
+  })
+
+  it('should successfully claim tokens when not sponsored', async () => {    
+    // Approving tokens from linkdropMaster to Linkdrop Contract
+    await tokenInstance.approve(proxy.address, tokenAmount)
+
+    const feeReceiver = await feeManager.feeReceiver()
+    let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+    let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+    let receiverBalanceBefore = await provider.getBalance(receiver.address)
+    
+    link = await createLink(
+      linkdropSigner,
+      weiAmount,
+      tokenAddress,
+      tokenAmount,
+      expirationTime,
+      version,
+      chainId,
+      proxyAddress
+    )
+
+    receiverAddress = receiver.address
+    receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+    factory = factory.connect(receiver)
+
+    let approverBalanceBefore = await tokenInstance.balanceOf(
+      linkdropMaster.address
+    )
+
+    await factory.claim(
+      weiAmount,
+      tokenAddress,
+      tokenAmount,
+      expirationTime,
+      link.linkId,
+      linkdropMaster.address,
+      campaignId,
+      link.linkdropSignerSignature,
+      receiverAddress,
+      receiverSignature,
+      {
+        gasLimit: 800000,
+        value: claimerFee
+      }
+    )
+
+    let approverBalanceAfter = await tokenInstance.balanceOf(
+      linkdropMaster.address
+    )
+    expect(approverBalanceAfter).to.eq(approverBalanceBefore.sub(tokenAmount))
+
+    let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+    expect(receiverTokenBalance).to.eq(tokenAmount)
+
+    // fees should be transferred from proxy address to receiving fee account
+    let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+    let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+    let receiverBalanceAfter = await provider.getBalance(receiver.address)
+    
+    expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+    expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(claimerFee)
+    expect(receiverBalanceBefore.sub(receiverBalanceAfter)).to.be.gt(claimerFee)
   })  
 })
