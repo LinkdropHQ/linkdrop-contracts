@@ -239,12 +239,8 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
         address payable _receiver
     )
     internal returns (bool) {
-      // should send fees to fee receiver
-      IFeeManager feeManager = IFeeManager(factory.feeManager());
-      uint fee = feeManager.calculateFee(linkdropMaster, _tokenAddress, address(_receiver));
-      if (fee > 0) { 
-        feeManager.feeReceiver().transfer(fee);
-      }
+      // pay Linkdrop fee if needed
+      _payFee(_tokenAddress, _receiver);
       
       // Transfer ether
       if (_weiAmount > 0) {
@@ -259,5 +255,25 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
       }
       
       return true;
+    }
+
+    function _payFee(                     
+                     address _tokenAddress,
+                     address payable _receiver
+                     ) internal {
+      // should send fees to fee receiver
+      IFeeManager feeManager = IFeeManager(factory.feeManager());
+      uint fee = feeManager.calculateFee(linkdropMaster, _tokenAddress, address(_receiver));
+
+      // if claim is not sponsored
+      // verify that exactly the amount of ETH was provided to pay the fees
+      if (_receiver == address(tx.origin)) {
+        require(msg.value == fee, "TX_VALUE_FEE_MISMATCH");
+      }
+      
+      if (fee > 0) {        
+        address payable feeReceiver = feeManager.feeReceiver();
+        feeReceiver.transfer(fee);
+      }
     }
 }
