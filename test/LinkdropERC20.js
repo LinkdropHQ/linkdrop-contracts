@@ -7,6 +7,7 @@ import {
 } from 'ethereum-waffle'
 
 import LinkdropFactory from '../build/LinkdropFactory'
+import FeeManager from '../build/FeeManager'
 import LinkdropMastercopy from '../build/LinkdropMastercopy'
 import ERC20Mock from '../build/ERC20Mock'
 
@@ -43,6 +44,10 @@ let version
 let bytecode
 
 const campaignId = 0
+let feeManager
+let sponsorshipFee
+let claimerFee
+
 
 const initcode = '0x6352c7420d6000526103ff60206004601c335afa6040516060f3'
 const chainId = 4 // Rinkeby
@@ -71,13 +76,22 @@ describe('ETH/ERC20 linkdrop tests', () => {
       [masterCopy.address, chainId],
       {
         gasLimit: 6000000
-      }
+      }      
     )
 
     expect(factory.address).to.not.eq(ethers.constants.AddressZero)
     let version = await factory.masterCopyVersion()
     expect(version).to.eq(1)
 
+
+    const feeManagerAddress = await factory.feeManager()
+    feeManager = new ethers.Contract(
+      feeManagerAddress,
+      FeeManager.abi,
+      linkdropMaster
+    )
+    sponsorshipFee = await feeManager.fee()
+    claimerFee = await feeManager.claimerFee()    
   })
 
   it('should deploy proxy and delegate to implementation', async () => {
@@ -91,7 +105,8 @@ describe('ETH/ERC20 linkdrop tests', () => {
 
     await expect(
       factory.deployProxy(campaignId, DEFAULT_TRANSFER_PATTERN, {
-        gasLimit: 6000000
+        gasLimit: 6000000,
+        value: ethers.utils.parseUnits('100')        
       })
     ).to.emit(factory, 'Deployed')
 
@@ -398,10 +413,14 @@ describe('ETH/ERC20 linkdrop tests', () => {
     ).to.be.revertedWith('')
   })
 
-  it('should succesfully claim tokens with valid claim params', async () => {
+  it('should succesfully claim tokens with valid claim params', async () => {    
     // Approving tokens from linkdropMaster to Linkdrop Contract
     await tokenInstance.approve(proxy.address, tokenAmount)
 
+    const feeReceiver = await feeManager.feeReceiver()
+    let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+    let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+    
     link = await createLink(
       linkdropSigner,
       weiAmount,
@@ -441,6 +460,13 @@ describe('ETH/ERC20 linkdrop tests', () => {
 
     let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
     expect(receiverTokenBalance).to.eq(tokenAmount)
+
+    // fees should be transferred from proxy address to receiving fee account
+    let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+    let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+
+    expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(sponsorshipFee)
+    expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(sponsorshipFee)    
   })
 
   
@@ -696,7 +722,7 @@ describe('ETH/ERC20 linkdrop tests', () => {
 
     let proxyEthBalanceAfter = await provider.getBalance(proxy.address)
     expect(proxyEthBalanceAfter).to.eq(
-      proxyEthBalanceBefore.sub(weiAmount)
+      proxyEthBalanceBefore.sub(weiAmount).sub(sponsorshipFee)
     )
 
     let approverTokenBalanceAfter = await tokenInstance.balanceOf(
