@@ -715,6 +715,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
       receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
       proxy = proxy.connect(receiver)
       
+      const txValue = claimerFee.gt(0) ? claimerFee : ethers.utils.parseUnits('1')              
       await expect(proxy.claimERC721(
         weiAmount,
         nftAddress,
@@ -727,7 +728,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
         {
           gasLimit: 800000,
           from: receiver.address,
-          value: claimerFee
+          value: txValue
         }
       )).to.be.revertedWith("TX_VALUE_FEE_MISMATCH")
     })

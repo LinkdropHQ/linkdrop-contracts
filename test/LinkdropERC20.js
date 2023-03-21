@@ -889,6 +889,7 @@ describe('ETH/ERC20 linkdrop tests', () => {
           linkdropMaster.address
         )
 
+        const txValue = claimerFee.gt(0) ? claimerFee : ethers.utils.parseUnits('1')        
         await expect(proxy.claim(
           weiAmount,
           tokenAddress,
@@ -900,7 +901,7 @@ describe('ETH/ERC20 linkdrop tests', () => {
           receiverSignature,
           {
             gasLimit: 800000,
-            value: claimerFee
+            value: txValue
           }
         )).to.be.revertedWith("TX_VALUE_FEE_MISMATCH")
 

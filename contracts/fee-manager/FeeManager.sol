@@ -13,8 +13,8 @@ contract FeeManager is IFeeManager, Ownable  {
   address payable public override feeReceiver;
   
   constructor() public {
-    fee = 0.1 ether;
-    claimerFee = 0.05 ether;
+    fee = 0 ether;
+    claimerFee = 0 ether;
     feeReceiver = payable(address(this));
   }
   

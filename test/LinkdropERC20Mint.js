@@ -755,6 +755,7 @@ describe('ETH/ERC20 linkdrop tests for the MINT TRANFER PATTERN', () => {
       receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
       proxy = proxy.connect(receiver)
 
+      const txValue = claimerFee.gt(0) ? claimerFee : ethers.utils.parseUnits('1')              
       await expect(proxy.claim(
         weiAmount,
         tokenAddress,
@@ -766,7 +767,7 @@ describe('ETH/ERC20 linkdrop tests for the MINT TRANFER PATTERN', () => {
         receiverSignature,
         {
           gasLimit: 800000,
-          value: claimerFee
+          value: txValue
         }
       )).to.be.revertedWith("TX_VALUE_FEE_MISMATCH")
     })
