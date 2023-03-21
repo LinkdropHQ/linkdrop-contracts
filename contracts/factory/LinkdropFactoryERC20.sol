@@ -85,7 +85,6 @@ contract LinkdropFactoryERC20 is ILinkdropFactoryERC20, LinkdropFactoryCommon {
     )
     external
     override
-    payable
     returns (bool)
     {
         // Make sure proxy contract is deployed
@@ -93,7 +92,6 @@ contract LinkdropFactoryERC20 is ILinkdropFactoryERC20, LinkdropFactoryCommon {
 
         // Call claim function in the context of proxy contract
         ILinkdropERC20(deployed[salt(_linkdropMaster, _campaignId)]).claim
-          { value: msg.value }          
           (
            _weiAmount,
            _tokenAddress,

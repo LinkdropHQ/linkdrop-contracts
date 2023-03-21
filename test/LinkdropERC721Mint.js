@@ -575,17 +575,15 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
     
     receiverAddress = receiver.address
     receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-    factory = factory.connect(receiver)
+    proxy = proxy.connect(receiver)
 
 
-    await factory.claimERC721(
+    await proxy.claimERC721(
       weiAmount,
       nftAddress,
       tokenId,
       expirationTime,
       link.linkId,
-      linkdropMaster.address,
-      campaignId,
       link.linkdropSignerSignature,
       receiverAddress,
       receiverSignature,
@@ -686,16 +684,14 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
       
       receiverAddress = receiver.address
       receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-      factory = factory.connect(receiver)
+      proxy = proxy.connect(receiver)
       
-      await expect(factory.claimERC721(
+      await expect(proxy.claimERC721(
         weiAmount,
         nftAddress,
         tokenId,
         expirationTime,
         link.linkId,
-        linkdropMaster.address,
-        campaignId,
         link.linkdropSignerSignature,
         receiverAddress,
         receiverSignature,
@@ -727,16 +723,14 @@ describe('ETH/ERC721 linkdrop tests for MINT TRANSFER PATTERN', () => {
       
       receiverAddress = receiver.address
       receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-      factory = factory.connect(receiver)
+      proxy = proxy.connect(receiver)
       
-      await factory.claimERC721(
+      await proxy.claimERC721(
         weiAmount,
         nftAddress,
         tokenId,
         expirationTime,
         link.linkId,
-        linkdropMaster.address,
-        campaignId,
         link.linkdropSignerSignature,
         receiverAddress,
         receiverSignature,

@@ -657,16 +657,14 @@ describe('ETH/ERC20 linkdrop tests for the MINT TRANFER PATTERN', () => {
 
     receiverAddress = receiver.address
     receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-    factory = factory.connect(receiver)
+    proxy = proxy.connect(receiver)
 
-    await factory.claim(
+    await proxy.claim(
       weiAmount,
       tokenAddress,
       tokenAmount,
       expirationTime,
       link.linkId,
-      linkdropMaster.address,
-      campaignId,
       link.linkdropSignerSignature,
       receiverAddress,
       receiverSignature,
@@ -755,16 +753,14 @@ describe('ETH/ERC20 linkdrop tests for the MINT TRANFER PATTERN', () => {
 
       receiverAddress = receiver.address
       receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-      factory = factory.connect(receiver)
+      proxy = proxy.connect(receiver)
 
-      await expect(factory.claim(
+      await expect(proxy.claim(
         weiAmount,
         tokenAddress,
         tokenAmount,
         expirationTime,
         link.linkId,
-        linkdropMaster.address,
-        campaignId,
         link.linkdropSignerSignature,
         receiverAddress,
         receiverSignature,
@@ -794,18 +790,16 @@ describe('ETH/ERC20 linkdrop tests for the MINT TRANFER PATTERN', () => {
 
       receiverAddress = receiver.address
       receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-      factory = factory.connect(receiver)
+      proxy = proxy.connect(receiver)
 
       let receiverTokenBalanceBefore = await tokenInstance.balanceOf(receiverAddress)
       
-      await factory.claim(
+      await proxy.claim(
         weiAmount,
         tokenAddress,
         tokenAmount,
         expirationTime,
         link.linkId,
-        linkdropMaster.address,
-        campaignId,
         link.linkdropSignerSignature,
         receiverAddress,
         receiverSignature,

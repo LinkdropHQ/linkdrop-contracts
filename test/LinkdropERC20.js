@@ -763,20 +763,18 @@ describe('ETH/ERC20 linkdrop tests', () => {
 
     receiverAddress = receiver.address
     receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-    factory = factory.connect(receiver)
+    proxy = proxy.connect(receiver)
 
     let approverBalanceBefore = await tokenInstance.balanceOf(
       linkdropMaster.address
     )
 
-    await factory.claim(
+    await proxy.claim(
       weiAmount,
       tokenAddress,
       tokenAmount,
       expirationTime,
       link.linkId,
-      linkdropMaster.address,
-      campaignId,
       link.linkdropSignerSignature,
       receiverAddress,
       receiverSignature,
@@ -885,20 +883,18 @@ describe('ETH/ERC20 linkdrop tests', () => {
 
         receiverAddress = receiver.address
         receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-        factory = factory.connect(receiver)
+        proxy = proxy.connect(receiver)
 
         let approverBalanceBefore = await tokenInstance.balanceOf(
           linkdropMaster.address
         )
 
-        await expect(factory.claim(
+        await expect(proxy.claim(
           weiAmount,
           tokenAddress,
           tokenAmount,
           expirationTime,
           link.linkId,
-          linkdropMaster.address,
-          campaignId,
           link.linkdropSignerSignature,
           receiverAddress,
           receiverSignature,
@@ -932,7 +928,7 @@ describe('ETH/ERC20 linkdrop tests', () => {
 
         receiverAddress = receiver.address
         receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-        factory = factory.connect(receiver)
+        proxy = proxy.connect(receiver)
 
         let approverBalanceBefore = await tokenInstance.balanceOf(
           linkdropMaster.address
@@ -940,14 +936,12 @@ describe('ETH/ERC20 linkdrop tests', () => {
 
         let receiverTokenBalanceBefore = await tokenInstance.balanceOf(receiverAddress)
         
-        await factory.claim(
+        await proxy.claim(
           weiAmount,
           tokenAddress,
           tokenAmount,
           expirationTime,
           link.linkId,
-          linkdropMaster.address,
-          campaignId,
           link.linkdropSignerSignature,
           receiverAddress,
           receiverSignature,

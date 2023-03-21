@@ -169,7 +169,6 @@ contract LinkdropERC721 is ILinkdropERC721, LinkdropCommon {
     )
     external
     override 
-    onlyFactory
     whenNotPaused
     payable
     returns (bool)

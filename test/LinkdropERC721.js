@@ -104,7 +104,6 @@ describe('ETH/ERC721 linkdrop tests', () => {
     
     await factory.deployProxyWithSigner(campaignId, linkdropSigner.address, DEFAULT_TRANSFER_PATTERN, {
       gasLimit: 6000000,
-      value: ethers.utils.parseUnits('100'),
       value: ethers.utils.parseUnits('100')
     })
 
@@ -603,16 +602,14 @@ describe('ETH/ERC721 linkdrop tests', () => {
     
     receiverAddress = receiver.address
     receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-    factory = factory.connect(receiver)
+    proxy = proxy.connect(receiver)
     
-    await factory.claimERC721(
+    await proxy.claimERC721(
       weiAmount,
       nftAddress,
       tokenId,
       expirationTime,
       link.linkId,
-      linkdropMaster.address,
-      campaignId,
       link.linkdropSignerSignature,
       receiverAddress,
       receiverSignature,
@@ -716,16 +713,14 @@ describe('ETH/ERC721 linkdrop tests', () => {
       
       receiverAddress = receiver.address
       receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-      factory = factory.connect(receiver)
+      proxy = proxy.connect(receiver)
       
-      await expect(factory.claimERC721(
+      await expect(proxy.claimERC721(
         weiAmount,
         nftAddress,
         tokenId,
         expirationTime,
         link.linkId,
-        linkdropMaster.address,
-        campaignId,
         link.linkdropSignerSignature,
         receiverAddress,
         receiverSignature,
@@ -759,16 +754,14 @@ describe('ETH/ERC721 linkdrop tests', () => {
       
       receiverAddress = receiver.address
       receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-      factory = factory.connect(receiver)
+      proxy = proxy.connect(receiver)
       
-      await factory.claimERC721(
+      await proxy.claimERC721(
         weiAmount,
         nftAddress,
         tokenId,
         expirationTime,
         link.linkId,
-        linkdropMaster.address,
-        campaignId,
         link.linkdropSignerSignature,
         receiverAddress,
         receiverSignature,

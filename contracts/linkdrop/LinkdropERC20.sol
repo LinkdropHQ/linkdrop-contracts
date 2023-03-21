@@ -167,7 +167,6 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
     external
     override
     payable
-    onlyFactory
     whenNotPaused
     returns (bool)
     {
