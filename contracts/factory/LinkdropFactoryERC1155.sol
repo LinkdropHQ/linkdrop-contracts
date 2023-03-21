@@ -90,9 +90,9 @@ contract LinkdropFactoryERC1155 is ILinkdropFactoryERC1155, LinkdropFactoryCommo
     )
     external
     override
-    payable
     returns (bool)
     {
+      
       // Make sure proxy contract is deployed
       require(isDeployed(_linkdropMaster, _campaignId), "LINKDROP_PROXY_CONTRACT_NOT_DEPLOYED");
       

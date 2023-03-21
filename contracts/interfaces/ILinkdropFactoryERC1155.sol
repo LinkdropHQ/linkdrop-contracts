@@ -35,6 +35,5 @@ interface ILinkdropFactoryERC1155 {
         bytes calldata _receiverSignature
     )
     external
-    payable
     returns (bool);
 }

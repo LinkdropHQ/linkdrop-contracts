@@ -8,6 +8,7 @@ import {
 } from 'ethereum-waffle'
 
 import LinkdropFactory from '../build/LinkdropFactory'
+import FeeManager from '../build/FeeManager'
 import LinkdropMastercopy from '../build/LinkdropMastercopy'
 import ERC1155Mock from '../build/ERC1155Mock'
 
@@ -41,6 +42,10 @@ let nftAddress
 let tokenId
 let expirationTime
 let version
+let feeManager
+let sponsorshipFee
+let claimerFee
+
 
 const initcode = '0x6352c7420d6000526103ff60206004601c335afa6040516060f3'
 const chainId = 4 // Rinkeby
@@ -79,6 +84,15 @@ describe('ERC1155 linkdrop tests for MINT TRANSFER PATTERN', () => {
     expect(factory.address).to.not.eq(ethers.constants.AddressZero)
     const version = await factory.masterCopyVersion()
     expect(version).to.eq(1)
+
+    const feeManagerAddress = await factory.feeManager()
+    feeManager = new ethers.Contract(
+      feeManagerAddress,
+      FeeManager.abi,
+      linkdropMaster
+    )
+    sponsorshipFee = await feeManager.fee()
+    claimerFee = await feeManager.claimerFee()    
   })
 
   it('should deploy proxy', async () => {
@@ -92,7 +106,8 @@ describe('ERC1155 linkdrop tests for MINT TRANSFER PATTERN', () => {
 
     await expect(
       factory.deployProxyWithSigner(campaignId, linkdropSigner.address, MINT_ON_CLAIM_PATTERN, {
-        gasLimit: 6000000
+        gasLimit: 6000000,
+        value: ethers.utils.parseUnits('100')
       })
     ).to.emit(factory, 'Deployed')
 
@@ -394,7 +409,11 @@ describe('ERC1155 linkdrop tests for MINT TRANSFER PATTERN', () => {
     ).to.be.revertedWith('')
   })
 
-  it('should succesfully claim nft with valid claim params', async () => {
+  it('should successfully claim nft with valid claim params', async () => {
+    const feeReceiver = await feeManager.feeReceiver()
+    let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+    let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+    
     const tokenAmount = 1
     link = await createLinkForERC1155(
       linkdropSigner,
@@ -428,6 +447,13 @@ describe('ERC1155 linkdrop tests for MINT TRANSFER PATTERN', () => {
 
     const hasTokens = (await nftInstance.balanceOf(receiverAddress, tokenId)) > 0    
     expect(hasTokens).to.eq(true)
+
+        // fees should be transferred from proxy address to receiving fee account
+    let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+    let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+
+    expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(sponsorshipFee)
+    expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(sponsorshipFee)
   })
   
   it('should be able to check link claimed from factory instance', async () => {
@@ -578,7 +604,6 @@ describe('ERC1155 linkdrop tests for MINT TRANSFER PATTERN', () => {
 
   it('should succesfully claim eth and nft simulteneously', async () => {
     tokenId = 4
-
     weiAmount = 15 // wei
 
     // Send ethers to Linkdrop contract
@@ -625,5 +650,204 @@ describe('ERC1155 linkdrop tests for MINT TRANSFER PATTERN', () => {
 
     const receiverEthBalance = await provider.getBalance(receiverAddress)
     expect(receiverEthBalance).to.eq(weiAmount)
+
+    weiAmount = 0
+  })
+
+    it('should succesfully claim nft when not sponsored', async () => {
+    tokenId = 4
+    const tokenAmount = 1    
+    const feeReceiver = await feeManager.feeReceiver()
+    let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+    let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+    let receiverBalanceBefore = await provider.getBalance(receiver.address)    
+    
+    link = await createLinkForERC1155(
+      linkdropSigner,
+      weiAmount,
+      nftAddress,
+      tokenId,
+      tokenAmount,
+      expirationTime,
+      version,
+      chainId,
+      proxyAddress
+    )
+    
+    receiverAddress = receiver.address
+    receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+    proxy = proxy.connect(receiver)
+    const tx = await proxy.claimERC1155(
+      weiAmount,
+      nftAddress,
+      tokenId,
+      tokenAmount,
+      expirationTime,
+      link.linkId,
+      link.linkdropSignerSignature,
+      receiverAddress,
+      receiverSignature,
+      {
+        gasLimit: 800000,
+        value: claimerFee
+      }
+    )
+    expect(tx.from).to.eq(receiverAddress)
+    
+    const hasTokens = (await nftInstance.balanceOf(receiverAddress, tokenId)) > 0
+    expect(hasTokens).to.eq(true)
+    
+    // fees should be transferred from proxy address to receiving fee account
+    let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+    let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+    let receiverBalanceAfter = await provider.getBalance(receiver.address)    
+    
+    expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+    expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(claimerFee)
+    expect(receiverBalanceBefore.sub(receiverBalanceAfter)).to.be.gt(claimerFee)
+  })
+
+    describe("whitelisted", () => {
+    before(async () => {
+      await feeManager.whitelist(linkdropMaster.address)
+    })
+
+    it('should succesfully claim with sponsorship', async () => {
+      const feeReceiver = await feeManager.feeReceiver()
+      let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+      let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+      
+      const tokenAmount = 1
+      link = await createLinkForERC1155(
+        linkdropSigner,
+        weiAmount,
+        nftAddress,
+        tokenId,
+        tokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      await factory.claimERC1155(
+        weiAmount,
+        nftAddress,
+        tokenId,
+        tokenAmount,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        { gasLimit: 800000 }
+      )
+
+      const hasTokens = (await nftInstance.balanceOf(receiverAddress, tokenId)) > 0    
+      expect(hasTokens).to.eq(true)
+
+      // fees should be transferred from proxy address to receiving fee account
+      let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+      let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+
+      expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+      expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(0)    
+    })
+
+    it('should not allow to claim without sponsorship if tx value is not matched with fee', async () => {
+      tokenId = 4
+      const tokenAmount = 1        
+      link = await createLinkForERC1155(
+        linkdropSigner,
+        weiAmount,
+        nftAddress,
+        tokenId,
+        tokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+      
+      receiverAddress = receiver.address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+      
+      proxy = proxy.connect(receiver)
+      await expect(proxy.claimERC1155(
+        weiAmount,
+        nftAddress,
+        tokenId,
+        tokenAmount,
+        expirationTime,
+        link.linkId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        {
+          gasLimit: 800000,
+          value: claimerFee
+        }
+      )).to.be.revertedWith("TX_VALUE_FEE_MISMATCH")
+    })
+    
+    it('should succesfully claim without sponsorship', async () => {
+      tokenId = 4
+      const tokenAmount = 1    
+      const feeReceiver = await feeManager.feeReceiver()
+      let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+      let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+      let receiverBalanceBefore = await provider.getBalance(receiver.address)    
+      
+      link = await createLinkForERC1155(
+        linkdropSigner,
+        weiAmount,
+        nftAddress,
+        tokenId,
+        tokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+      
+      receiverAddress = receiver.address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      proxy = proxy.connect(receiver)
+      const tx = await proxy.claimERC1155(
+        weiAmount,
+        nftAddress,
+        tokenId,
+        tokenAmount,
+        expirationTime,
+        link.linkId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        {
+          gasLimit: 800000,
+          value: 0
+        }
+      )
+      expect(tx.from).to.eq(receiverAddress)
+      
+      const hasTokens = (await nftInstance.balanceOf(receiverAddress, tokenId)) > 0
+      expect(hasTokens).to.eq(true)
+      
+      // fees should be transferred from proxy address to receiving fee account
+      let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+      let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+      let receiverBalanceAfter = await provider.getBalance(receiver.address)    
+      
+      expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+      expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(0)
+      expect(receiverBalanceBefore.sub(receiverBalanceAfter)).to.be.gt(0)
+    })
   })
 })

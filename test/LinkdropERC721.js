@@ -104,6 +104,7 @@ describe('ETH/ERC721 linkdrop tests', () => {
     
     await factory.deployProxyWithSigner(campaignId, linkdropSigner.address, DEFAULT_TRANSFER_PATTERN, {
       gasLimit: 6000000,
+      value: ethers.utils.parseUnits('100'),
       value: ethers.utils.parseUnits('100')
     })
 
