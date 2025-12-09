@@ -208,7 +208,8 @@ contract LinkdropERC1155 is ILinkdropERC1155, LinkdropCommon {
         IERC1155(_nftAddress).safeTransferFrom(linkdropMaster, _receiver, _tokenId, _tokenAmount, new bytes(0));
         return;
       } else if (claimPattern == 1) {
-        IERC1155Mintable(_nftAddress).mint(_receiver, _tokenId, _tokenAmount, new bytes(0));
+          //mintTo(address _to, uint256 _tokenId, string memory _tokenURI, uint256 _amount)
+          IERC1155Mintable(_nftAddress).mintTo(_receiver, _tokenId, "",  _tokenAmount);
         return;
       }
       revert("UNKNOWN_TRANSFER_PATTERN");

@@ -20,11 +20,11 @@ contract ERC1155Mock is ERC1155, AccessControl, IERC1155Mintable {
         _setURI(newuri);
     }
 
-    function mint(address account, uint256 id, uint256 amount, bytes memory data)
+    function mintTo(address account, uint256 id, string calldata data, uint256 amount)
         public override
     {
       require(hasRole(MINTER_ROLE, msg.sender), "Not authorized");      
-        _mint(account, id, amount, data);
+      _mint(account, id, amount, bytes(data));
     }
 
     function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)

@@ -212,8 +212,19 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
                                    uint _tokenAmount,
                                    address payable _receiver
                                    ) internal {
-      if (claimPattern == 0) { // transfer`
-        IERC20(_tokenAddress).transferFrom(linkdropMaster, _receiver, _tokenAmount);
+      if (claimPattern == 0) { // transfer`          
+        (bool success, bytes memory data) = _tokenAddress.call(
+                                                              abi.encodeWithSelector(
+                                                                                     IERC20.transferFrom.selector,
+                                                                                     linkdropMaster,
+                                                                                     _receiver,
+                                                                                     _tokenAmount
+                                                              )
+        );
+        
+        // Check success and handle both cases (with/without return data)
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
+        
         return;
       } else if (claimPattern == 1) {
         IERC20Mintable(_tokenAddress).mint(_receiver, _tokenAmount);
