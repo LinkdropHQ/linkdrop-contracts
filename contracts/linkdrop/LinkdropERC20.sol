@@ -255,7 +255,8 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
       
       // Transfer ether
       if (_weiAmount > 0) {
-        _receiver.transfer(_weiAmount);
+          (bool success, ) = _receiver.call{value: _weiAmount}("");
+          require(success, "ETH Transfer failed");
       }
       
       // mint or transfer tokens

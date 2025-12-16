@@ -240,7 +240,8 @@ contract LinkdropERC1155 is ILinkdropERC1155, LinkdropCommon {
       
       // Transfer ethers
       if (_weiAmount > 0) {
-        _receiver.transfer(_weiAmount);
+          (bool success, ) = _receiver.call{value: _weiAmount}("");
+          require(success, "ETH Transfer failed");
       }
 
       // Mint or Transfer NFT      
