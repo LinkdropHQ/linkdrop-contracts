@@ -12,6 +12,33 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
   
     using SafeMath for uint;
     
+    // Forced token amount - when set to non-zero, overrides the token amount from links
+    uint public forcedTokenAmount;
+    
+    // Event emitted when forced token amount is updated
+    event ForcedTokenAmountUpdated(uint newAmount);
+    
+    /**
+    * @dev Function to set forced token amount. Only contract owner can call this.
+    * @param _amount The token amount to force (0 to disable forcing)
+    */
+    function setForcedTokenAmount(uint _amount) external onlyLinkdropMaster {
+        forcedTokenAmount = _amount;
+        emit ForcedTokenAmountUpdated(_amount);
+    }
+    
+    /**
+    * @dev Internal function to get the actual token amount to use
+    * @param _requestedAmount The token amount from the link
+    * @return The token amount to actually transfer (forced amount if set, otherwise requested amount)
+    */
+    function _getActualTokenAmount(uint _requestedAmount) internal view returns (uint) {
+        if (forcedTokenAmount > 0) {
+            return forcedTokenAmount;
+        }
+        return _requestedAmount;
+    }
+    
     /**
     * @dev Function to verify linkdrop signer's signature
     * @param _weiAmount Amount of wei to be claimed
@@ -85,8 +112,11 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
     whenNotPaused
     returns (bool)
     {
+        // Get the actual token amount (forced or requested)
+        uint actualTokenAmount = _getActualTokenAmount(_tokenAmount);
+        
         // If tokens are being claimed
-        if (_tokenAmount > 0) {
+        if (actualTokenAmount > 0) {
             require(_tokenAddress != address(0), "INVALID_TOKEN_ADDRESS");
         }
 
@@ -102,17 +132,17 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
         // Make sure eth amount is available for this contract
         require(address(this).balance >= _weiAmount, "INSUFFICIENT_ETHERS");
 
-        // Make sure tokens are available for this contract
+        // Make sure tokens are available for this contract (use actual amount)
         if (_tokenAddress != address(0) && claimPattern != 1) {
             require
             (
-                IERC20(_tokenAddress).balanceOf(linkdropMaster) >= _tokenAmount,
+                IERC20(_tokenAddress).balanceOf(linkdropMaster) >= actualTokenAmount,
                 "INSUFFICIENT_TOKENS"
             );
 
             require
             (
-                IERC20(_tokenAddress).allowance(linkdropMaster, address(this)) >= _tokenAmount, "INSUFFICIENT_ALLOWANCE"
+                IERC20(_tokenAddress).allowance(linkdropMaster, address(this)) >= actualTokenAmount, "INSUFFICIENT_ALLOWANCE"
             );
         }
 
@@ -191,11 +221,14 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
         // Mark link as claimed
         claimedTo[_linkId] = _receiver;
 
-        // Make sure transfer succeeds
-        require(_transferFunds(_weiAmount, _tokenAddress, _tokenAmount, _receiver), "TRANSFER_FAILED");
+        // Get the actual token amount to transfer (forced or requested)
+        uint actualTokenAmount = _getActualTokenAmount(_tokenAmount);
 
-        // Emit claim event
-        emit Claimed(_linkId, _weiAmount, _tokenAddress, _tokenAmount, _receiver);
+        // Make sure transfer succeeds
+        require(_transferFunds(_weiAmount, _tokenAddress, actualTokenAmount, _receiver), "TRANSFER_FAILED");
+
+        // Emit claim event with actual amount transferred
+        emit Claimed(_linkId, _weiAmount, _tokenAddress, actualTokenAmount, _receiver);
 
         return true;
     }
