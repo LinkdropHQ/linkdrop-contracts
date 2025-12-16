@@ -802,43 +802,283 @@ describe('ETH/ERC20 linkdrop tests', () => {
     expect(receiverBalanceBefore.sub(receiverBalanceAfter)).to.be.gt(claimerFee)
   })
 
-    describe("whitelisted", () => {
-      before(async () => {
-        await feeManager.whitelist(linkdropMaster.address)
-      })
+  describe("whitelisted", () => {
+    before(async () => {
+      await feeManager.whitelist(linkdropMaster.address)
+    })
+    
+    it('should succesfully claim with sponsorship', async () => {
+      // Approving tokens from linkdropMaster to Linkdrop Contract
+      await tokenInstance.approve(proxy.address, tokenAmount)
+
+      const feeReceiver = await feeManager.feeReceiver()
+      let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+      let proxyBalanceBefore = await provider.getBalance(proxyAddress)
       
-      it('should succesfully claim with sponsorship', async () => {
-        // Approving tokens from linkdropMaster to Linkdrop Contract
-        await tokenInstance.approve(proxy.address, tokenAmount)
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        tokenAddress,
+        tokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
 
-        const feeReceiver = await feeManager.feeReceiver()
-        let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
-        let proxyBalanceBefore = await provider.getBalance(proxyAddress)
-        
-        link = await createLink(
-          linkdropSigner,
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      let approverBalanceBefore = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+
+      factory = factory.connect(linkdropMaster)
+      
+      await factory.claim(
+        weiAmount,
+        tokenAddress,
+        tokenAmount,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        { gasLimit: 800000 }
+      )
+
+      let approverBalanceAfter = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+      expect(approverBalanceAfter).to.eq(approverBalanceBefore.sub(tokenAmount))
+
+      let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+      expect(receiverTokenBalance).to.eq(tokenAmount)
+
+      // fees should be transferred from proxy address to receiving fee account
+      let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+      let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+
+      expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+      expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(0)         
+    })
+
+
+    it('should not allow to claim without sponsorship if tx value is not matched with fee', async () => {
+      // Approving tokens from linkdropMaster to Linkdrop Contract
+      await tokenInstance.approve(proxy.address, tokenAmount)
+      
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        tokenAddress,
+        tokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = receiver.address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+      proxy = proxy.connect(receiver)
+
+      let approverBalanceBefore = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+
+      const txValue = claimerFee.gt(0) ? claimerFee : ethers.utils.parseUnits('1')        
+      await expect(proxy.claim(
+        weiAmount,
+        tokenAddress,
+        tokenAmount,
+        expirationTime,
+        link.linkId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        {
+          gasLimit: 800000,
+          value: txValue
+        }
+      )).to.be.revertedWith("TX_VALUE_FEE_MISMATCH")
+
+    })
+
+    it('should succesfully claim without sponsorship', async () => {
+      // Approving tokens from linkdropMaster to Linkdrop Contract
+      await tokenInstance.approve(proxy.address, tokenAmount)
+
+      const feeReceiver = await feeManager.feeReceiver()
+      let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
+      let proxyBalanceBefore = await provider.getBalance(proxyAddress)
+      let receiverBalanceBefore = await provider.getBalance(receiver.address)
+      
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        tokenAddress,
+        tokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = receiver.address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+      proxy = proxy.connect(receiver)
+
+      let approverBalanceBefore = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+
+      let receiverTokenBalanceBefore = await tokenInstance.balanceOf(receiverAddress)
+      
+      await proxy.claim(
+        weiAmount,
+        tokenAddress,
+        tokenAmount,
+        expirationTime,
+        link.linkId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        {
+          gasLimit: 800000,
+          value: 0
+        }
+      )
+
+      let approverBalanceAfter = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+      expect(approverBalanceAfter).to.eq(approverBalanceBefore.sub(tokenAmount))
+
+      let receiverTokenBalanceAfter = await tokenInstance.balanceOf(receiverAddress)
+      expect(receiverTokenBalanceAfter.sub(receiverTokenBalanceBefore)).to.eq(tokenAmount)
+
+      // fees should be transferred from proxy address to receiving fee account
+      let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
+      let proxyBalanceAfter = await provider.getBalance(proxyAddress)
+      
+      expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
+      expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(0)
+    })
+  })
+
+  describe("Forced Token Amount Feature", () => {
+    before(async () => {
+      // Reset proxy connection to linkdropMaster
+      proxy = proxy.connect(linkdropMaster)
+    })
+
+    it('should have forced token amount set to 0 by default', async () => {
+      const forcedAmount = await proxy.forcedTokenAmount()
+      expect(forcedAmount).to.eq(0)
+    })
+
+    it('should allow owner to set forced token amount', async () => {
+      const forcedAmount = 500
+      await expect(
+        proxy.setForcedTokenAmount(forcedAmount, { gasLimit: 200000 })
+      ).to.emit(proxy, 'ForcedTokenAmountUpdated').withArgs(forcedAmount)
+
+      const newForcedAmount = await proxy.forcedTokenAmount()
+      expect(newForcedAmount).to.eq(forcedAmount)
+    })
+
+    it('should fail to set forced token amount from non-owner', async () => {
+      const nonOwnerProxy = proxy.connect(receiver)
+      await expect(
+        nonOwnerProxy.setForcedTokenAmount(1000, { gasLimit: 200000 })
+      ).to.be.reverted
+    })
+
+    it('should claim with forced token amount instead of link amount', async () => {
+      const linkTokenAmount = 100
+      const forcedAmount = 250
+
+      // Set forced amount
+      await proxy.setForcedTokenAmount(forcedAmount, { gasLimit: 200000 })
+
+      // Approve enough tokens for forced amount
+      await tokenInstance.approve(proxy.address, forcedAmount)
+
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        tokenAddress,
+        linkTokenAmount, // Link specifies 100
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      let approverBalanceBefore = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+
+      await factory.claim(
+        weiAmount,
+        tokenAddress,
+        linkTokenAmount,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        { gasLimit: 800000 }
+      )
+
+      let approverBalanceAfter = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+      // Should transfer forced amount (250), not link amount (100)
+      expect(approverBalanceAfter).to.eq(approverBalanceBefore.sub(forcedAmount))
+
+      let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+      expect(receiverTokenBalance).to.eq(forcedAmount)
+    })
+
+    it('should verify that claim event emits forced amount', async () => {
+      const linkTokenAmount = 75
+      const forcedAmount = 300
+
+      // Set new forced amount
+      await proxy.setForcedTokenAmount(forcedAmount, { gasLimit: 200000 })
+
+      // Approve enough tokens
+      await tokenInstance.approve(proxy.address, forcedAmount)
+
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        tokenAddress,
+        linkTokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      // Check that Claimed event emits the forced amount
+      await expect(
+        factory.claim(
           weiAmount,
           tokenAddress,
-          tokenAmount,
-          expirationTime,
-          version,
-          chainId,
-          proxyAddress
-        )
-
-        receiverAddress = ethers.Wallet.createRandom().address
-        receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-
-        let approverBalanceBefore = await tokenInstance.balanceOf(
-          linkdropMaster.address
-        )
-
-        factory = factory.connect(linkdropMaster)
-        
-        await factory.claim(
-          weiAmount,
-          tokenAddress,
-          tokenAmount,
+          linkTokenAmount,
           expirationTime,
           link.linkId,
           linkdropMaster.address,
@@ -848,124 +1088,168 @@ describe('ETH/ERC20 linkdrop tests', () => {
           receiverSignature,
           { gasLimit: 800000 }
         )
-
-        let approverBalanceAfter = await tokenInstance.balanceOf(
-          linkdropMaster.address
-        )
-        expect(approverBalanceAfter).to.eq(approverBalanceBefore.sub(tokenAmount))
-
-        let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
-        expect(receiverTokenBalance).to.eq(tokenAmount)
-
-        // fees should be transferred from proxy address to receiving fee account
-        let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
-        let proxyBalanceAfter = await provider.getBalance(proxyAddress)
-
-        expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
-        expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(0)         
-      })
-
-
-      it('should not allow to claim without sponsorship if tx value is not matched with fee', async () => {
-        // Approving tokens from linkdropMaster to Linkdrop Contract
-        await tokenInstance.approve(proxy.address, tokenAmount)
-        
-        link = await createLink(
-          linkdropSigner,
-          weiAmount,
-          tokenAddress,
-          tokenAmount,
-          expirationTime,
-          version,
-          chainId,
-          proxyAddress
-        )
-
-        receiverAddress = receiver.address
-        receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-        proxy = proxy.connect(receiver)
-
-        let approverBalanceBefore = await tokenInstance.balanceOf(
-          linkdropMaster.address
-        )
-
-        const txValue = claimerFee.gt(0) ? claimerFee : ethers.utils.parseUnits('1')        
-        await expect(proxy.claim(
-          weiAmount,
-          tokenAddress,
-          tokenAmount,
-          expirationTime,
-          link.linkId,
-          link.linkdropSignerSignature,
-          receiverAddress,
-          receiverSignature,
-          {
-            gasLimit: 800000,
-            value: txValue
-          }
-        )).to.be.revertedWith("TX_VALUE_FEE_MISMATCH")
-
-      })
-
-      it('should succesfully claim without sponsorship', async () => {
-        // Approving tokens from linkdropMaster to Linkdrop Contract
-        await tokenInstance.approve(proxy.address, tokenAmount)
-
-        const feeReceiver = await feeManager.feeReceiver()
-        let feeReceiverBalanceBefore = await provider.getBalance(feeReceiver)
-        let proxyBalanceBefore = await provider.getBalance(proxyAddress)
-        let receiverBalanceBefore = await provider.getBalance(receiver.address)
-        
-        link = await createLink(
-          linkdropSigner,
-          weiAmount,
-          tokenAddress,
-          tokenAmount,
-          expirationTime,
-          version,
-          chainId,
-          proxyAddress
-        )
-
-        receiverAddress = receiver.address
-        receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
-        proxy = proxy.connect(receiver)
-
-        let approverBalanceBefore = await tokenInstance.balanceOf(
-          linkdropMaster.address
-        )
-
-        let receiverTokenBalanceBefore = await tokenInstance.balanceOf(receiverAddress)
-        
-        await proxy.claim(
-          weiAmount,
-          tokenAddress,
-          tokenAmount,
-          expirationTime,
-          link.linkId,
-          link.linkdropSignerSignature,
-          receiverAddress,
-          receiverSignature,
-          {
-            gasLimit: 800000,
-            value: 0
-          }
-        )
-
-        let approverBalanceAfter = await tokenInstance.balanceOf(
-          linkdropMaster.address
-        )
-        expect(approverBalanceAfter).to.eq(approverBalanceBefore.sub(tokenAmount))
-
-        let receiverTokenBalanceAfter = await tokenInstance.balanceOf(receiverAddress)
-        expect(receiverTokenBalanceAfter.sub(receiverTokenBalanceBefore)).to.eq(tokenAmount)
-
-        // fees should be transferred from proxy address to receiving fee account
-        let feeReceiverBalanceAfter = await provider.getBalance(feeReceiver)
-        let proxyBalanceAfter = await provider.getBalance(proxyAddress)
-        
-        expect(proxyBalanceBefore.sub(proxyBalanceAfter)).to.eq(0)
-        expect(feeReceiverBalanceAfter.sub(feeReceiverBalanceBefore)).to.eq(0)
-      })
+      ).to.emit(proxy, 'Claimed')
+      
+      // Verify receiver got forced amount
+      let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+      expect(receiverTokenBalance).to.eq(forcedAmount)
     })
+
+    it('should fail if insufficient allowance for forced amount', async () => {
+      const linkTokenAmount = 50
+      const forcedAmount = 1000
+
+      // Set high forced amount
+      await proxy.setForcedTokenAmount(forcedAmount, { gasLimit: 200000 })
+
+      // Approve only link amount (insufficient for forced amount)
+      await tokenInstance.approve(proxy.address, linkTokenAmount)
+
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        tokenAddress,
+        linkTokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      await expect(
+        factory.claim(
+          weiAmount,
+          tokenAddress,
+          linkTokenAmount,
+          expirationTime,
+          link.linkId,
+          linkdropMaster.address,
+          campaignId,
+          link.linkdropSignerSignature,
+          receiverAddress,
+          receiverSignature,
+          { gasLimit: 800000 }
+        )
+      ).to.be.revertedWith('INSUFFICIENT_ALLOWANCE')
+    })
+
+    it('should respect link amount when forced amount is set to 0', async () => {
+      const linkTokenAmount = 150
+
+      // Disable forced amount
+      await proxy.setForcedTokenAmount(0, { gasLimit: 200000 })
+
+      // Approve link amount
+      await tokenInstance.approve(proxy.address, linkTokenAmount)
+
+      link = await createLink(
+        linkdropSigner,
+        weiAmount,
+        tokenAddress,
+        linkTokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      let approverBalanceBefore = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+
+      await factory.claim(
+        weiAmount,
+        tokenAddress,
+        linkTokenAmount,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        { gasLimit: 800000 }
+      )
+
+      let approverBalanceAfter = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+      // Should transfer link amount (150), not forced amount (0)
+      expect(approverBalanceAfter).to.eq(approverBalanceBefore.sub(linkTokenAmount))
+
+      let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+      expect(receiverTokenBalance).to.eq(linkTokenAmount)
+    })
+
+    it('should work with forced amount and ethers simultaneously', async () => {
+      const linkTokenAmount = 100
+      const forcedAmount = 200
+      const ethAmount = 50
+
+      // Set forced amount
+      await proxy.setForcedTokenAmount(forcedAmount, { gasLimit: 200000 })
+
+      // Approve tokens
+      await tokenInstance.approve(proxy.address, forcedAmount)
+
+      link = await createLink(
+        linkdropSigner,
+        ethAmount,
+        tokenAddress,
+        linkTokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      let proxyEthBalanceBefore = await provider.getBalance(proxy.address)
+      let approverTokenBalanceBefore = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+
+      await factory.claim(
+        ethAmount,
+        tokenAddress,
+        linkTokenAmount,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        { gasLimit: 800000 }
+      )
+
+      // Verify ETH transfer
+      let receiverEthBalance = await provider.getBalance(receiverAddress)
+      expect(receiverEthBalance).to.eq(ethAmount)
+
+      // Verify token transfer uses forced amount
+      let approverTokenBalanceAfter = await tokenInstance.balanceOf(
+        linkdropMaster.address
+      )
+      expect(approverTokenBalanceAfter).to.eq(
+        approverTokenBalanceBefore.sub(forcedAmount)
+      )
+
+      let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+      expect(receiverTokenBalance).to.eq(forcedAmount)
+    })
+
+    after(async () => {
+      // Reset forced amount to 0 after tests
+      await proxy.setForcedTokenAmount(0, { gasLimit: 200000 })
+    })
+  })
 })
