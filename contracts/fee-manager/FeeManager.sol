@@ -9,12 +9,14 @@ contract FeeManager is IFeeManager, Ownable  {
   using SafeMath for uint;  
   mapping (address => bool) internal _whitelisted;
   uint public fee; // fee paid by campaign creator if fee is sponsored
-  uint public claimerFee;  // fee to paid by receiver if claim is not sponsored 
+  uint public claimerFee;  // fee to paid by receiver if claim is not sponsored
+  uint public override erc20FeePercentage;  // in basis points (100 = 1%)
   address payable public override feeReceiver;
   
   constructor() public {
     fee = 0 ether;
     claimerFee = 0 ether;
+    erc20FeePercentage = 50; // 0.5%
     feeReceiver = payable(address(this));
   }
   
@@ -45,7 +47,23 @@ contract FeeManager is IFeeManager, Ownable  {
   function updateClaimerFee(uint _claimerFee) public override onlyOwner returns (bool) {
     claimerFee = _claimerFee;
     return true;
-  }  
+  }
+
+  function updateErc20FeePercentage(uint _percentage) public override onlyOwner returns (bool) {
+    require(_percentage <= 10000, "INVALID_PERCENTAGE");  // max 100%
+    erc20FeePercentage = _percentage;
+    return true;
+  }
+
+  function calculateErc20Fee(
+    address _linkdropMaster,
+    uint _tokenAmount
+  ) public view override returns (uint) {
+    if (isWhitelisted(_linkdropMaster)) {
+      return 0;
+    }
+    return _tokenAmount.mul(erc20FeePercentage).div(10000);
+  }
 
   function withdraw() external override onlyOwner returns (bool) {
     msg.sender.transfer(address(this).balance);

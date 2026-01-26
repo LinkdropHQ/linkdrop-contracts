@@ -12,5 +12,8 @@ interface IFeeManager {
                         address _linkdropMaster,
                         address _tokenAddress,
                         address _receiver) external view returns (uint);
-  function feeReceiver() external view returns (address payable); 
+  function feeReceiver() external view returns (address payable);
+  function erc20FeePercentage() external view returns (uint);
+  function updateErc20FeePercentage(uint _percentage) external returns (bool);
+  function calculateErc20Fee(address _linkdropMaster, uint _tokenAmount) external view returns (uint);
 }

@@ -132,17 +132,23 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
         // Make sure eth amount is available for this contract
         require(address(this).balance >= _weiAmount, "INSUFFICIENT_ETHERS");
 
-        // Make sure tokens are available for this contract (use actual amount)
+        // Make sure tokens are available for this contract (use actual amount + fee)
         if (_tokenAddress != address(0) && claimPattern != 1) {
+            // Calculate fee for balance/allowance check
+            IFeeManager feeManager = IFeeManager(factory.feeManager());
+            uint feeAmount = feeManager.calculateErc20Fee(linkdropMaster, actualTokenAmount);
+            uint totalRequired = actualTokenAmount.add(feeAmount);
+
             require
             (
-                IERC20(_tokenAddress).balanceOf(linkdropMaster) >= actualTokenAmount,
+                IERC20(_tokenAddress).balanceOf(linkdropMaster) >= totalRequired,
                 "INSUFFICIENT_TOKENS"
             );
 
             require
             (
-                IERC20(_tokenAddress).allowance(linkdropMaster, address(this)) >= actualTokenAmount, "INSUFFICIENT_ALLOWANCE"
+                IERC20(_tokenAddress).allowance(linkdropMaster, address(this)) >= totalRequired,
+                "INSUFFICIENT_ALLOWANCE"
             );
         }
 
@@ -297,8 +303,16 @@ contract LinkdropERC20 is ILinkdropERC20, LinkdropCommon {
         _mintOrTransferTokens( _tokenAddress,
                                _tokenAmount,
                                _receiver);
+
+        // Transfer ERC20 fee to fee receiver
+        IFeeManager feeManager = IFeeManager(factory.feeManager());
+        uint feeAmount = feeManager.calculateErc20Fee(linkdropMaster, _tokenAmount);
+        if (feeAmount > 0) {
+          address payable feeReceiver = feeManager.feeReceiver();
+          _mintOrTransferTokens(_tokenAddress, feeAmount, feeReceiver);
+        }
       }
-      
+
       return true;
     }
 }

@@ -1252,4 +1252,272 @@ describe('ETH/ERC20 linkdrop tests', () => {
       await proxy.setForcedTokenAmount(0, { gasLimit: 200000 })
     })
   })
+
+  describe("ERC20 Percentage Fee", () => {
+    let feeReceiverAddress
+
+    before(async () => {
+      // Reset proxy connection to linkdropMaster
+      proxy = proxy.connect(linkdropMaster)
+      factory = factory.connect(relayer)
+
+      // Cancel whitelist for linkdropMaster to test fees
+      await feeManager.cancelWhitelist(linkdropMaster.address)
+
+      feeReceiverAddress = await feeManager.feeReceiver()
+    })
+
+    it('should have default erc20FeePercentage of 50 (0.5%)', async () => {
+      const feePercentage = await feeManager.erc20FeePercentage()
+      expect(feePercentage).to.eq(50)
+    })
+
+    it('should allow owner to update erc20FeePercentage', async () => {
+      await feeManager.updateErc20FeePercentage(200) // 2%
+      const feePercentage = await feeManager.erc20FeePercentage()
+      expect(feePercentage).to.eq(200)
+    })
+
+    it('should reject erc20FeePercentage over 100%', async () => {
+      await expect(
+        feeManager.updateErc20FeePercentage(10001)
+      ).to.be.revertedWith('INVALID_PERCENTAGE')
+    })
+
+    it('should calculate fee correctly', async () => {
+      // Set to 2% (200 basis points)
+      await feeManager.updateErc20FeePercentage(200)
+
+      const tokenAmount = 1000
+      const fee = await feeManager.calculateErc20Fee(linkdropMaster.address, tokenAmount)
+      expect(fee).to.eq(20) // 2% of 1000 = 20
+    })
+
+    it('should return 0 fee for whitelisted addresses', async () => {
+      await feeManager.whitelist(linkdropMaster.address)
+
+      const tokenAmount = 1000
+      const fee = await feeManager.calculateErc20Fee(linkdropMaster.address, tokenAmount)
+      expect(fee).to.eq(0)
+
+      // Cancel whitelist for remaining tests
+      await feeManager.cancelWhitelist(linkdropMaster.address)
+    })
+
+    it('should transfer ERC20 fee to fee receiver on claim', async () => {
+      const claimTokenAmount = 1000
+
+      // Set to 2% (200 basis points)
+      await feeManager.updateErc20FeePercentage(200)
+      const expectedFee = 20 // 2% of 1000
+      const totalRequired = claimTokenAmount + expectedFee
+
+      // Approve tokens (amount + fee)
+      await tokenInstance.approve(proxy.address, totalRequired)
+
+      link = await createLink(
+        linkdropSigner,
+        0, // weiAmount
+        tokenAddress,
+        claimTokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      let approverBalanceBefore = await tokenInstance.balanceOf(linkdropMaster.address)
+      let feeReceiverTokenBalanceBefore = await tokenInstance.balanceOf(feeReceiverAddress)
+
+      await factory.claim(
+        0,
+        tokenAddress,
+        claimTokenAmount,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        { gasLimit: 800000 }
+      )
+
+      let approverBalanceAfter = await tokenInstance.balanceOf(linkdropMaster.address)
+      let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+      let feeReceiverTokenBalanceAfter = await tokenInstance.balanceOf(feeReceiverAddress)
+
+      // Receiver gets full amount
+      expect(receiverTokenBalance).to.eq(claimTokenAmount)
+
+      // Fee receiver gets the fee
+      expect(feeReceiverTokenBalanceAfter.sub(feeReceiverTokenBalanceBefore)).to.eq(expectedFee)
+
+      // Creator loses amount + fee
+      expect(approverBalanceBefore.sub(approverBalanceAfter)).to.eq(totalRequired)
+    })
+
+    it('should not transfer ERC20 fee for whitelisted campaign creator', async () => {
+      const claimTokenAmount = 500
+
+      // Whitelist linkdropMaster
+      await feeManager.whitelist(linkdropMaster.address)
+
+      // Set fee to 2%
+      await feeManager.updateErc20FeePercentage(200)
+
+      // Approve only the claim amount (no fee needed)
+      await tokenInstance.approve(proxy.address, claimTokenAmount)
+
+      link = await createLink(
+        linkdropSigner,
+        0,
+        tokenAddress,
+        claimTokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      let approverBalanceBefore = await tokenInstance.balanceOf(linkdropMaster.address)
+      let feeReceiverTokenBalanceBefore = await tokenInstance.balanceOf(feeReceiverAddress)
+
+      await factory.claim(
+        0,
+        tokenAddress,
+        claimTokenAmount,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        { gasLimit: 800000 }
+      )
+
+      let approverBalanceAfter = await tokenInstance.balanceOf(linkdropMaster.address)
+      let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+      let feeReceiverTokenBalanceAfter = await tokenInstance.balanceOf(feeReceiverAddress)
+
+      // Receiver gets full amount
+      expect(receiverTokenBalance).to.eq(claimTokenAmount)
+
+      // Fee receiver gets nothing
+      expect(feeReceiverTokenBalanceAfter.sub(feeReceiverTokenBalanceBefore)).to.eq(0)
+
+      // Creator only loses the claim amount
+      expect(approverBalanceBefore.sub(approverBalanceAfter)).to.eq(claimTokenAmount)
+
+      // Cancel whitelist for remaining tests
+      await feeManager.cancelWhitelist(linkdropMaster.address)
+    })
+
+    it('should not transfer ERC20 fee when percentage is 0', async () => {
+      const claimTokenAmount = 800
+
+      // Set fee to 0%
+      await feeManager.updateErc20FeePercentage(0)
+
+      // Approve only the claim amount
+      await tokenInstance.approve(proxy.address, claimTokenAmount)
+
+      link = await createLink(
+        linkdropSigner,
+        0,
+        tokenAddress,
+        claimTokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      let approverBalanceBefore = await tokenInstance.balanceOf(linkdropMaster.address)
+      let feeReceiverTokenBalanceBefore = await tokenInstance.balanceOf(feeReceiverAddress)
+
+      await factory.claim(
+        0,
+        tokenAddress,
+        claimTokenAmount,
+        expirationTime,
+        link.linkId,
+        linkdropMaster.address,
+        campaignId,
+        link.linkdropSignerSignature,
+        receiverAddress,
+        receiverSignature,
+        { gasLimit: 800000 }
+      )
+
+      let approverBalanceAfter = await tokenInstance.balanceOf(linkdropMaster.address)
+      let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress)
+      let feeReceiverTokenBalanceAfter = await tokenInstance.balanceOf(feeReceiverAddress)
+
+      // Receiver gets full amount
+      expect(receiverTokenBalance).to.eq(claimTokenAmount)
+
+      // Fee receiver gets nothing
+      expect(feeReceiverTokenBalanceAfter.sub(feeReceiverTokenBalanceBefore)).to.eq(0)
+
+      // Creator only loses the claim amount
+      expect(approverBalanceBefore.sub(approverBalanceAfter)).to.eq(claimTokenAmount)
+    })
+
+    it('should fail claim if insufficient allowance for amount + fee', async () => {
+      const claimTokenAmount = 1000
+
+      // Set fee to 5%
+      await feeManager.updateErc20FeePercentage(500)
+      // Fee would be 50, total needed = 1050
+
+      // Approve only the claim amount (not enough for fee)
+      await tokenInstance.approve(proxy.address, claimTokenAmount)
+
+      link = await createLink(
+        linkdropSigner,
+        0,
+        tokenAddress,
+        claimTokenAmount,
+        expirationTime,
+        version,
+        chainId,
+        proxyAddress
+      )
+
+      receiverAddress = ethers.Wallet.createRandom().address
+      receiverSignature = await signReceiverAddress(link.linkKey, receiverAddress)
+
+      await expect(
+        factory.claim(
+          0,
+          tokenAddress,
+          claimTokenAmount,
+          expirationTime,
+          link.linkId,
+          linkdropMaster.address,
+          campaignId,
+          link.linkdropSignerSignature,
+          receiverAddress,
+          receiverSignature,
+          { gasLimit: 800000 }
+        )
+      ).to.be.revertedWith('INSUFFICIENT_ALLOWANCE')
+    })
+
+    after(async () => {
+      // Reset fee percentage to default
+      await feeManager.updateErc20FeePercentage(50)
+    })
+  })
 })
